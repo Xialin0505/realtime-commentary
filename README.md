@@ -3,8 +3,10 @@
 ### Setup
 clone the git repo
 
-### Run the server
+### Run the backend server
 ```
 cd backend
 python3 manage.py runserver
 ```
+
+### Run the frontend
