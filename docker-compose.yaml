@@ -12,17 +12,18 @@ services:
     entrypoint: tail -f /dev/null
 #    entrypoint: python3 manage.py runserver "0.0.0.0:8000"
 
-  # frontend:
-  #   build:
-  #     context: .
-  #     dockerfile: frontend.Dockerfile
-  #   networks:
-  #     - commentarynet
-  #   ports:
-  #     - '3000:3000'
-  #   volumes:
-  #     - ./frontend:/mnt
-  #   entrypoint: tail -f /dev/null
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend.Dockerfile
+    networks:
+      - commentarynet
+    ports:
+      - '3000:3000'
+    volumes:
+      - ./frontend:/mnt
+    entrypoint: tail -f /dev/null
+#    entrypoint: npm run start
 
 networks:
   commentarynet:

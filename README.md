@@ -14,7 +14,12 @@ python3 manage.py runserver "0.0.0.0:8000"
 open the url `http://127.0.0.1:8000/generate/?sequence=#` will generate the streaming chat content
 
 ### Run the frontend
+```
+cd frontend
+npm run start
+```
 
+open the url `http://127.0.0.1:3000` will show the react page
 
 ### Run within container
 to setup the docker container
