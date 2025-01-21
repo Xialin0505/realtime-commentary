@@ -26,4 +26,5 @@ to bring down and clean up the docker container
 to rebuild the docker container
 `docker-compose build`
 
-the project directory is mounted inside the `/mnt` folder
+the project directory is mounted inside the `/mnt` folder for development
+the porject directory is copied inside the `usr/src/app` folder as the production
