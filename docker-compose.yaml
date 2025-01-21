@@ -1,0 +1,29 @@
+services:
+  backend:
+    build: 
+      context: .
+      dockerfile: backend.Dockerfile
+    networks:
+      - commentarynet
+    ports:
+      - '8000:8000'
+    volumes:
+      - ./backend:/mnt
+    entrypoint: tail -f /dev/null
+#    entrypoint: python3 manage.py runserver "0.0.0.0:8000"
+
+  # frontend:
+  #   build:
+  #     context: .
+  #     dockerfile: frontend.Dockerfile
+  #   networks:
+  #     - commentarynet
+  #   ports:
+  #     - '3000:3000'
+  #   volumes:
+  #     - ./frontend:/mnt
+  #   entrypoint: tail -f /dev/null
+
+networks:
+  commentarynet:
+    driver: bridge
