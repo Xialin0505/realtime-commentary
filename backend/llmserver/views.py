@@ -8,6 +8,7 @@ import re
 import os
 import asyncio
 import time
+import numbers
 
 load_dotenv()
 
@@ -18,8 +19,14 @@ def convert_image_to_base64(image_path):
         encoded_string = base64.b64encode(image_file.read())
     return encoded_string.decode('utf-8')
 
-def get_image_info(image_path):
-    filename, file_extension = os.path.splitext(image_path)
+def get_image_info(img_sequence):
+
+    if not isinstance(img_sequence, numbers.Number):
+        return None, None
+
+    img_url = "./image/image" + img_sequence + ".png"
+
+    _, file_extension = os.path.splitext(img_url)
     file_extension = file_extension[1:]
 
     img_type = ""
@@ -30,7 +37,7 @@ def get_image_info(image_path):
     elif (file_extension == "gif"):
         img_type = "image/gif"
 
-    return convert_image_to_base64(image_path), img_type
+    return convert_image_to_base64(img_url), img_type
 
 ### TO-DO ###
 ### Using Async for realtime API ###
@@ -73,8 +80,11 @@ def sync_openai_generator(request):
             """
     
     img_sequence = request.GET.get('sequence')
-    img_url = "./image/image" + img_sequence + ".png"
-    img_b64_str, img_type = get_image_info(img_url)
+    img_b64_str, img_type = get_image_info(img_sequence)
+
+    if not img_type or not img_b64_str:
+        yield "Error: image not found"
+        return
     
     client = OpenAI(
         api_key=os.environ.get("OPENAI_API_KEY"),  # This is the default and can be omitted
