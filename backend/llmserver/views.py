@@ -1,14 +1,13 @@
 from django.shortcuts import render
 from django.http import HttpResponse, StreamingHttpResponse
 from dotenv import load_dotenv
+from openai import OpenAI, AsyncOpenAI
+
 import base64
 import re
-
-
 import os
 import asyncio
 import time
-from openai import OpenAI, AsyncOpenAI
 
 load_dotenv()
 
