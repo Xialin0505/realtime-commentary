@@ -1,7 +1,9 @@
 ## Realtime Commentary
 
 ### Setup
-clone the git repo
+1. clone the git repo
+2. nagivate to `backend/llmserver` and create a file named `.env`
+3. inside the `.env` file, insert a line `OPENAI_API_KEY = ""` and copy the OPENAI API key into the quote
 
 ### Run the backend server
 ```
