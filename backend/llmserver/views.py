@@ -21,7 +21,7 @@ def convert_image_to_base64(image_path):
 
 def get_image_info(img_sequence):
 
-    if not isinstance(img_sequence, numbers.Number):
+    if not img_sequence.isdigit():
         return None, None
 
     img_url = "./image/image" + img_sequence + ".png"
@@ -41,34 +41,48 @@ def get_image_info(img_sequence):
 
 ### TO-DO ###
 ### Using Async for realtime API ###
-async def async_openai_generator():
-    client = AsyncOpenAI()
+async def async_openai_generator(request):
+    prompt = """
+                provide an appropriate, one-sentence, concise commentary for this picture to 
+                entertain the audience that is natural and does not delve into too many details. 
+                Consider not only the current game state but also the previous three game states. 
+                This comment will be used as part of the live commentary system, along with other past and future messages. 
+            """
+    
+    img_sequence = request.GET.get('sequence')
+    img_b64_str, img_type = get_image_info(img_sequence)
 
-    async with client.beta.realtime.connect(model="gpt-4o-realtime-preview") as connection:
-        await connection.session.update(session={'modalities': ['text']})
+    if not img_type or not img_b64_str:
+        yield "Error: image not found"
+        return
 
-        await connection.conversation.item.create(
-            item={
-                "type": "message",
+    client = AsyncOpenAI(
+        api_key=os.environ.get("OPENAI_API_KEY"),  # This is the default and can be omitted
+    )
+
+    stream = await client.chat.completions.create(
+        messages=[
+            {
                 "role": "user",
-                "content": [{"type": "input_text", "text": "Say hello!"}],
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:{img_type};base64,{img_b64_str}"},
+                    },
+                ],
             }
-        )
+        ],
+        model="gpt-4o",
+        stream=True,
+    )
 
-        await connection.response.create()
-
-        async for event in connection:
-            if event.type == 'response.text.delta':
-                print(event.delta, flush=True, end="")
-
-            elif event.type == 'response.text.done':
-                print()
-
-            elif event.type == "response.done":
-                break
+    async for chunk in stream:
+        yield chunk.choices[0].delta.content or ""
+        time.sleep(0.1)
 
 def async_openai_request(request):
-    asyncio.run(async_openai_generator())
+    return StreamingHttpResponse(async_openai_generator(request))
 
 ### Streaming non-realtime ###
 def sync_openai_generator(request):
