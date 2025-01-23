@@ -40,6 +40,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'corsheaders',
+    'dapine',
+    "channels",
     #'website',
 ]
 
@@ -74,6 +76,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'realtime_commentary.wsgi.application'
+ASGI_APPLICATION = 'realtime_commentary.asgi.application'
 
 
 # Database

@@ -16,8 +16,16 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from django.urls import re_path
+
+from llmserver.consumers import CommentaryConsumer
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('llmserver.urls')),
 ]
+
+websocket_urlpatterns = [
+    re_path(r'ws/commentary/$', CommentaryConsumer.as_asgi()),
+]
+
