@@ -6,12 +6,21 @@
 3. inside the `.env` file, insert a line `OPENAI_API_KEY = ""` and copy the OPENAI API key into the quote
 
 ### Run the backend server
+
+#### WSGI Server (HTTP)
 ```
 cd backend
 python3 manage.py runserver "0.0.0.0:8000"
 ```
 
 open the url `http://127.0.0.1:8000/generate/?sequence=#` will generate the streaming chat content
+
+#### ASGI Server (Websocket)
+```
+cd backend
+daphne -b 0.0.0.0 -p 8001 realtime_commentary.asgi:application
+```
+
 
 ### Run the frontend
 ```
