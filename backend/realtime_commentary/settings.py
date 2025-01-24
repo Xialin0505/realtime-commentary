@@ -26,12 +26,14 @@ SECRET_KEY = 'django-insecure-kh86)&9*)(t=jg^a5@_q1#dp9k5h)!*b9hjjmdz1kk72haev00
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS","127.0.0.1").split(",")
+ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 
 
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',
+    "channels",
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -74,6 +76,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'realtime_commentary.wsgi.application'
+ASGI_APPLICATION = 'realtime_commentary.asgi.application'
 
 
 # Database
