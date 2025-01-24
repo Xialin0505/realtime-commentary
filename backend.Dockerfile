@@ -10,7 +10,7 @@ RUN apt install -y python3-pip
 RUN apt install -y git
 RUN apt install -y python3-django
 
-RUN pip3 install django djangorestframework django-cors-headers python-dotenv daphne
+RUN pip3 install django djangorestframework django-cors-headers python-dotenv channels daphne 
 RUN pip3 install openai
 
 # Copy your application code into the container
