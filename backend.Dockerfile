@@ -21,5 +21,4 @@ EXPOSE 8000
 RUN python3 manage.py migrate
 
 CMD ["daphne", "-b", "0.0.0.0", "-p", "8000", "realtime_commentary.asgi:application"]
-
 #CMD ["python3", "manage.py", "runserver", "0.0.0.0:8000"]
