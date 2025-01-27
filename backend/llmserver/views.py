@@ -39,7 +39,6 @@ def get_image_info(img_sequence):
 
     return convert_image_to_base64(img_url), img_type
 
-### TO-DO ###
 ### Using Async for realtime API ###
 async def async_openai_generator(request):
     prompt = """
