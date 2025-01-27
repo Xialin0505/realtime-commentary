@@ -11,19 +11,7 @@ services:
       - ./backend:/mnt
     entrypoint: tail -f /dev/null
     # entrypoint: python3 manage.py runserver "0.0.0.0:8000"
-
-  backend-asgi:
-    build: 
-      context: .
-      dockerfile: backend-asgi.Dockerfile
-    networks:
-      - commentarynet
-    ports:
-      - '8001:8001'
-    volumes:
-      - ./backend:/mnt
-    entrypoint: tail -f /dev/null
-    # entrypoint: daphne -b 0.0.0.0 -p 8001 realtime_commentary.asgi:application
+    # entrypoint: daphne -b 0.0.0.0 -p 8000 realtime_commentary.asgi:application
 
   frontend:
     build:

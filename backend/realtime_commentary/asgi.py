@@ -1,7 +1,7 @@
 import os
 from django.core.asgi import get_asgi_application
 from channels.routing import ProtocolTypeRouter, URLRouter
-from realtime_commentary.routing import websocket_urlpatterns
+from llmserver.urls import websocket_urlpatterns
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "realtime_commentary.settings")
 
