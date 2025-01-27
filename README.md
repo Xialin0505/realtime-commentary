@@ -10,18 +10,10 @@
 #### WSGI Server (HTTP)
 ```
 cd backend
-python3 manage.py runserver "0.0.0.0:8000" # WSGI Server (HTTP)
-daphne -b 0.0.0.0 -p 8001 realtime_commentary.asgi:application # ASGI Server (Websocket)
+daphne -b 0.0.0.0 -p 8000 realtime_commentary.asgi:application # ASGI Server (Websocket)
 ```
 
 open the url `http://127.0.0.1:8000/generate/?sequence=#` will generate the streaming chat content
-
-#### ASGI Server (Websocket)
-```
-cd backend
-daphne -b 0.0.0.0 -p 8001 realtime_commentary.asgi:application
-```
-
 
 ### Run the frontend
 ```
