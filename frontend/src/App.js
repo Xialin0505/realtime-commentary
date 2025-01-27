@@ -10,7 +10,7 @@ const App = () => {
 
   // Socket connection
   useEffect(() => {
-    socketRef.current = new WebSocket("ws://localhost:8001/ws/commentary/"); // only init once
+    socketRef.current = new WebSocket("ws://localhost:8000/ws/commentary/"); // only init once
 
     socketRef.current.onopen = () => {
       console.log("WebSocket connected!");
