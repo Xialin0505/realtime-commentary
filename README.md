@@ -18,6 +18,7 @@ open the url `http://127.0.0.1:8000/generate/?sequence=#` will generate the stre
 ### Run the frontend
 ```
 cd frontend
+export NODE_OPTIONS=--openssl-legacy-provider
 npm run start
 ```
 
