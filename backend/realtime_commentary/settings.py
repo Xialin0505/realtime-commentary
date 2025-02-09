@@ -30,8 +30,10 @@ ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").sp
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+VIDEO_URL = '/video/'
+VIDEO_ROOT = os.path.join(BASE_DIR, 'media/video')
 IMAGE_URL = '/image/'
-IMAGE_ROOT = os.path.join(BASE_DIR, 'image')
+IMAGE_ROOT = os.path.join(BASE_DIR, 'media/image')
 
 # Application definition
 

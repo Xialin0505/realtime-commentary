@@ -20,12 +20,9 @@ def convert_image_to_base64(image_path):
         encoded_string = base64.b64encode(image_file.read())
     return encoded_string.decode('utf-8')
 
-def get_image_info(img_sequence):
+def get_image_info(img_name):
 
-    if not img_sequence.isdigit():
-        return None, None
-
-    img_url = settings.IMAGE_ROOT + "/image" + img_sequence + ".png"
+    img_url = settings.IMAGE_ROOT + '/' + img_name
 
     _, file_extension = os.path.splitext(img_url)
     file_extension = file_extension[1:]
@@ -93,8 +90,8 @@ def sync_openai_generator(request):
                 This comment will be used as part of the live commentary system, along with other past and future messages. 
             """
     
-    img_sequence = request.GET.get('sequence')
-    img_b64_str, img_type = get_image_info(img_sequence)
+    img_name = request.GET.get('img_name')
+    img_b64_str, img_type = get_image_info(img_name)
 
     if not img_type or not img_b64_str:
         yield "Error: image not found"
