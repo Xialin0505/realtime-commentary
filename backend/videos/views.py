@@ -4,6 +4,7 @@ from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 import os
 from django.conf import settings
+from llmserver.views import sync_openai_request
 
 @csrf_exempt
 def upload_screenshot(request):
@@ -15,7 +16,6 @@ def upload_screenshot(request):
             for chunk in image_file.chunks():
                 destination.write(chunk)
 
-        image_url = request.build_absolute_uri(settings.MEDIA_URL + image_file.name)
-        return JsonResponse({"image_url": image_url, "message": "success!"})
+        return sync_openai_request(image_file.name)
     
     return JsonResponse({"error": "invalid request"}, status=400)

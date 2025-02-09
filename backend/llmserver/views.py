@@ -38,7 +38,7 @@ def get_image_info(img_name):
     return convert_image_to_base64(img_url), img_type
 
 ### Using Async for realtime API ###
-async def async_openai_generator(request):
+async def async_openai_generator(img_name):
     prompt = """
                 provide an appropriate, one-sentence, concise commentary for this picture to 
                 entertain the audience that is natural and does not delve into too many details. 
@@ -46,7 +46,6 @@ async def async_openai_generator(request):
                 This comment will be used as part of the live commentary system, along with other past and future messages. 
             """
     
-    img_name = request.GET.get('img_name')
     img_b64_str, img_type = get_image_info(img_name)
 
     if not img_type or not img_b64_str:
@@ -79,18 +78,18 @@ async def async_openai_generator(request):
         time.sleep(0.1)
 
 def async_openai_request(request):
-    return StreamingHttpResponse(async_openai_generator(request))
+    img_name = request.GET.get('img_name')
+    return StreamingHttpResponse(async_openai_generator(img_name))
 
 ### Streaming non-realtime ###
-def sync_openai_generator(request):
+def sync_openai_generator(img_name):
     prompt = """
                 provide an appropriate, one-sentence, concise commentary for this picture to 
                 entertain the audience that is natural and does not delve into too many details. 
                 Consider not only the current game state but also the previous three game states. 
                 This comment will be used as part of the live commentary system, along with other past and future messages. 
             """
-    
-    img_name = request.GET.get('img_name')
+
     img_b64_str, img_type = get_image_info(img_name)
 
     if not img_type or not img_b64_str:
@@ -122,10 +121,11 @@ def sync_openai_generator(request):
         yield chunk.choices[0].delta.content or ""
         time.sleep(0.1)
 
-def sync_openai_request(request):
-    return StreamingHttpResponse(sync_openai_generator(request))
+def sync_openai_request(img_name):
+    return StreamingHttpResponse(sync_openai_generator(img_name))
 
 ### The real generator API ###
 ### request URL: http://127.0.0.1:8000/generate/?img_name=xxx.png ###
 def llmserver(request):
-    return sync_openai_request(request)
+    img_name = request.GET.get('img_name')
+    return sync_openai_request(img_name)
