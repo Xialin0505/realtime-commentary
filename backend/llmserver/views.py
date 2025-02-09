@@ -46,8 +46,8 @@ async def async_openai_generator(request):
                 This comment will be used as part of the live commentary system, along with other past and future messages. 
             """
     
-    img_sequence = request.GET.get('sequence')
-    img_b64_str, img_type = get_image_info(img_sequence)
+    img_name = request.GET.get('img_name')
+    img_b64_str, img_type = get_image_info(img_name)
 
     if not img_type or not img_b64_str:
         yield "Error: image not found"
