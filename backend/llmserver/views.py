@@ -126,6 +126,6 @@ def sync_openai_request(request):
     return StreamingHttpResponse(sync_openai_generator(request))
 
 ### The real generator API ###
-### request URL: http://127.0.0.1:8000/generate/?sequence=1 ###
+### request URL: http://127.0.0.1:8000/generate/?img_name=xxx.png ###
 def llmserver(request):
     return sync_openai_request(request)

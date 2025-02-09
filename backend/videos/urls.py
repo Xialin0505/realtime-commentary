@@ -1,8 +1,6 @@
 from django.urls import path
-from .views import VideoListAPIView
-from .views import ScreenshotUploadAPIView
+from .views import upload_screenshot
 
 urlpatterns = [
-    path('api/videos/', VideoListAPIView.as_view(), name='video_list_api'),
-    path('api/upload_screenshot/', ScreenshotUploadAPIView.as_view(), name='upload_screenshot'),
+    path('api/upload_screenshot/', upload_screenshot, name='upload_screenshot'),
 ]

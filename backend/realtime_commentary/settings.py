@@ -62,11 +62,14 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
+    'django.middleware.security.SecurityMiddleware',
 ]
 
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
+    'http://localhost:3000',
 ]
+
+CORS_ALLOW_CREDENTIALS = True
 
 ROOT_URLCONF = 'realtime_commentary.urls'
 
@@ -89,6 +92,9 @@ TEMPLATES = [
 WSGI_APPLICATION = 'realtime_commentary.wsgi.application'
 ASGI_APPLICATION = 'realtime_commentary.asgi.application'
 
+CSRF_TRUSTED_ORIGINS = [
+    'http://localhost:3000',
+]
 
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
