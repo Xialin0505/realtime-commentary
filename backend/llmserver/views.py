@@ -1,4 +1,5 @@
 from django.shortcuts import render
+from django.conf import settings
 from django.http import HttpResponse, StreamingHttpResponse
 from dotenv import load_dotenv
 from openai import OpenAI, AsyncOpenAI
@@ -24,7 +25,7 @@ def get_image_info(img_sequence):
     if not img_sequence.isdigit():
         return None, None
 
-    img_url = "./image/image" + img_sequence + ".png"
+    img_url = settings.IMAGE_ROOT + "/image" + img_sequence + ".png"
 
     _, file_extension = os.path.splitext(img_url)
     file_extension = file_extension[1:]
