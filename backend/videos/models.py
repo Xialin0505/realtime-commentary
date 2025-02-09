@@ -9,3 +9,7 @@ class Video(models.Model):
 
     def __str__(self):
         return self.title
+
+class Screenshot(models.Model):
+    timestamp = models.DateTimeField(auto_now_add=True)
+    image = models.ImageField(upload_to='image/')

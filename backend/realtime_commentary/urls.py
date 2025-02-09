@@ -26,7 +26,6 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('llmserver.urls')),
     path('', include('videos.urls')),
-    # path('', views.video_display, name='video_display'),
 ]
 
 if settings.DEBUG:
