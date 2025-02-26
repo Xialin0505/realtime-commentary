@@ -6,6 +6,7 @@ const VideoPlayer = () => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const [streamResponse, setStreamResponse] = useState([]);
+  // const [sendMessage, setSendMessage] = useState(null);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -66,12 +67,15 @@ const VideoPlayer = () => {
           
           <canvas ref={canvasRef} style={{ display: 'none' }}></canvas>
       
-          <div className="mt-4 bg-gray-100 p-4 rounded-lg">
+          {/* <div className="mt-4 bg-gray-100 p-4 rounded-lg">
             <h3 className="text-lg font-semibold mb-2">Streaming Response:</h3>
-            <pre className="whitespace-pre-wrap">{streamResponse || 'Waiting for response...'}</pre>
-          </div>
-      </Card>
-      <FloatingWindow />
+            <pre className="whitespace-pre-wrap">
+              {streamResponse.length > 0 ? streamResponse.join("\n") : "Waiting for response..."}
+            </pre>
+          </div> */}
+      </Card> 
+
+      <FloatingWindow streamResponses={streamResponse} />
     </div>
   );
 };

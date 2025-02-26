@@ -1,6 +1,5 @@
 import React from "react";
 import VideoPlayer from "./pages/getVideoFromBackend";
-import FloatingWindow from "./pages/floatingChatWindow";
 
 const App = () => {
   // Page
