@@ -1,11 +1,13 @@
 import React from "react";
-import RealtimeCommentary from "./pages/realtimeCommentary";
 import VideoPlayer from "./pages/getVideoFromBackend";
+import FloatingWindow from "./pages/floatingChatWindow";
 
 const App = () => {
   // Page
   return (
-    <VideoPlayer />
+    <div>
+      <VideoPlayer />
+    </div>
   );
 };
 

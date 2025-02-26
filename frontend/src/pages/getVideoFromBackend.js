@@ -1,10 +1,11 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { Card } from 'primereact/card';
+import FloatingWindow from "./floatingChatWindow";
 
 const VideoPlayer = () => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
-  const [streamResponse, setStreamResponse] = useState('');
+  const [streamResponse, setStreamResponse] = useState([]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -43,13 +44,13 @@ const VideoPlayer = () => {
     const decoder = new TextDecoder();
     let done = false;
 
-    setStreamResponse('');  // Clear previous streamed data
+    setStreamResponse([]);  // Clear previous streamed data
 
     while (!done) {
       const { value, done: doneReading } = await reader.read();
       done = doneReading;
       const chunk = decoder.decode(value || new Uint8Array());
-      setStreamResponse(prev => prev + chunk);  // Append streamed data
+      setStreamResponse((prev) => [...prev, chunk]);  // Append streamed data
     }
   };
 
@@ -58,7 +59,7 @@ const VideoPlayer = () => {
       <Card className="shadow-lg rounded-2xl">
           <h2 className="text-xl font-bold mb-2">Local Video Playback with Screenshots</h2>
           
-          <video ref={videoRef} width="640" height="360" controls crossOrigin="anonymous">
+          <video ref={videoRef} width="70%" height="500" controls crossOrigin="anonymous">
             <source src="http://localhost:8000/media/video/test.mp4" type="video/mp4" />
             Your browser does not support the video tag.
           </video>
@@ -70,6 +71,7 @@ const VideoPlayer = () => {
             <pre className="whitespace-pre-wrap">{streamResponse || 'Waiting for response...'}</pre>
           </div>
       </Card>
+      <FloatingWindow />
     </div>
   );
 };
