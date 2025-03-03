@@ -58,7 +58,7 @@ const VideoPlayer = () => {
   return (
     <div className="p-4 grid gap-4">
       <Card className="shadow-lg rounded-2xl">
-          <h2 className="text-xl font-bold mb-2">Local Video Playback with Screenshots</h2>
+          <h2 className="text-xl font-bold mb-2">Fencing Game Video</h2>
           
           <video ref={videoRef} width="70%" height="500" controls crossOrigin="anonymous">
             <source src="http://localhost:8000/media/video/test.mp4" type="video/mp4" />
