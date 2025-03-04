@@ -7,8 +7,10 @@ WORKDIR /usr/src/app
 COPY ./frontend .
 
 # Install application dependencies
-RUN npm install -g npm@11.0.0
+RUN npm install -g npm@latest
 RUN npm install --force
+
+ENV NODE_OPTIONS="--openssl-legacy-provider"
 
 # Expose a port your application will listen on
 EXPOSE 3000

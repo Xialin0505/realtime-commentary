@@ -106,6 +106,16 @@ DATABASES = {
     }
 }
 
+# Redis Config
+REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [(REDIS_HOST, 6379)],
+        },
+    },
+}
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
