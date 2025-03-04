@@ -8,5 +8,5 @@ urlpatterns = [
 from llmserver.consumers import CommentaryConsumer
 
 websocket_urlpatterns = [
-    re_path(r'ws/commentary/$', CommentaryConsumer.as_asgi()),
+    re_path(r'ws/commentary/(?P<video_id>[^/]+)/$$', CommentaryConsumer.as_asgi()),
 ]

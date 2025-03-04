@@ -11,7 +11,7 @@ RUN apt install -y git
 RUN apt install -y python3-django
 RUN apt install -y libgl1
 
-RUN pip3 install django djangorestframework django-cors-headers python-dotenv channels daphne 
+RUN pip3 install django djangorestframework django-cors-headers python-dotenv channels daphne pillow channels-redis asyncio
 RUN pip3 install openai
 RUN pip3 install requests Pillow numpy opencv-python
 

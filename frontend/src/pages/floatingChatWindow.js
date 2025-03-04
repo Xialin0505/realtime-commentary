@@ -29,7 +29,7 @@ const FloatingWindow = ({ streamResponses }) => {
 
   useEffect(() => {
     if (streamResponses && streamResponses.length > 0) {
-      const newMessage = streamResponses[0];
+      const newMessage = streamResponses[streamResponses.length - 1];
       console.log(newMessage)
       _sendMessage(newMessage);
     }
