@@ -197,11 +197,6 @@ def self_deployed_ai(img_name):
     # Convert payload to JSON string.
     payload_str = json.dumps(payload)
 
-    # img_b64_str, img_type = get_image_info(img_name)
-
-    # if not img_type or not img_b64_str:
-    #     return HttpResponse({"image not found"})
-
     img_url = settings.IMAGE_ROOT + '/' + img_name
 
     img_data = process_img_compress(img_url)
