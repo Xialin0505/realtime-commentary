@@ -6,6 +6,8 @@ from openai import OpenAI, AsyncOpenAI
 
 import json
 import requests
+import numpy as np
+import cv2
 
 import base64
 import re
@@ -39,6 +41,51 @@ def get_image_info(img_name):
         img_type = "image/gif"
 
     return convert_image_to_base64(img_url), img_type
+
+def process_img_compress(img_path):
+    with open(img_path, 'rb') as f:
+        img_bytes = f.read()
+
+    # Step 2: Convert bytes to NumPy array
+    img_array = np.frombuffer(img_bytes, np.uint8)
+
+    # Step 3: Decode image (BGR format)
+    img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)  # Shape: [H, W, 3]
+
+    # Step 4: Resize to (384, 384) if needed
+    img_resized = cv2.resize(img, (384, 384))  # Shape: [384, 384, 3]
+
+    # Step 5: Transpose to [3, 384, 384] (channels first)
+    img_transposed = np.transpose(img_resized, (2, 0, 1))  # Shape: [3, 384, 384]
+
+    # Step 6: Add a fourth channel (ones)
+    new_channel = np.ones((1, 384, 384), dtype=img_transposed.dtype)
+
+    # Step 7: Concatenate to [4, 384, 384]
+    img_final = np.concatenate((img_transposed, new_channel), axis=0)
+
+    img_final = np.transpose(img_final, (1, 2, 0))
+
+    if img_final.dtype != np.uint8:
+        img_final = img_final.astype(np.uint8)
+
+    # Step 1: Encode image (supports alpha channel)
+    success, encoded_img = cv2.imencode('.jpg', img_final)
+
+    if success:
+        # Step 2: Get binary data
+        img_bytes = encoded_img.tobytes()
+
+        # print(type(img_bytes))  # Output: <class 'bytes'>
+
+        # Optional: Save to file for checking
+        # with open('output.png', 'wb') as f:
+        #     f.write(img_bytes)
+    else:
+        return None
+
+    return img_bytes
+
 
 ### Using Async for realtime API ###
 async def async_openai_generator(img_name):
@@ -157,14 +204,22 @@ def self_deployed_ai(img_name):
 
     img_url = settings.IMAGE_ROOT + '/' + img_name
 
+    img_data = process_img_compress(img_url)
+    if not img_data:
+        return HttpResponse({"image not found or not valid"})
+
     # Open your image file (make sure the path is correct).
-    files = {"file": open(img_url, "rb")}
+    files = {"file": img_data}
 
     # Send a multipart/form-data POST request with the JSON payload as a form field.
     data = {"payload": payload_str}
 
     response = requests.post(url, data=data, files=files)
-    return HttpResponse(response)
+
+    response_json = response.json()
+    description = json.dumps(response_json['response'], indent=4)
+
+    return HttpResponse(description)
     
 
 ### The real generator API ###
