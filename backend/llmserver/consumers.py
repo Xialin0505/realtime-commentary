@@ -5,10 +5,13 @@ import redis
 import tempfile
 import logging
 import base64
+import requests
 import asyncio
+import cv2
 from channels.generic.websocket import AsyncWebsocketConsumer
 from openai import AsyncOpenAI
 from django.conf import settings
+import numpy as np
 
 logger = logging.getLogger(__name__)
 REDIS_HOST = os.getenv("REDIS_HOST", "redis")
@@ -25,6 +28,80 @@ def get_image_info(image_path):
     file_extension = file_extension.lower()[1:]
     img_type = f"image/{file_extension}" if file_extension in ["jpeg", "jpg", "png"] else None
     return (convert_image_to_base64(image_path), img_type) if img_type else (None, None)
+
+def process_img_compress(img_path):
+    with open(img_path, 'rb') as f:
+        img_bytes = f.read()
+
+    # Step 2: Convert bytes to NumPy array
+    img_array = np.frombuffer(img_bytes, np.uint8)
+
+    # Step 3: Decode image (BGR format)
+    img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)  # Shape: [H, W, 3]
+
+    # Step 4: Resize to (384, 384) if needed
+    img_resized = cv2.resize(img, (384, 384))  # Shape: [384, 384, 3]
+
+    # Step 5: Transpose to [3, 384, 384] (channels first)
+    img_transposed = np.transpose(img_resized, (2, 0, 1))  # Shape: [3, 384, 384]
+
+    # Step 6: Add a fourth channel (ones)
+    new_channel = np.ones((1, 384, 384), dtype=img_transposed.dtype)
+
+    # Step 7: Concatenate to [4, 384, 384]
+    img_final = np.concatenate((img_transposed, new_channel), axis=0)
+
+    img_final = np.transpose(img_final, (1, 2, 0))
+
+    if img_final.dtype != np.uint8:
+        img_final = img_final.astype(np.uint8)
+
+    # Step 1: Encode image (supports alpha channel)
+    success, encoded_img = cv2.imencode('.jpg', img_final)
+
+    if success:
+        # Step 2: Get binary data
+        img_bytes = encoded_img.tobytes()
+    else:
+        return None
+
+    return img_bytes
+
+async def async_deepseek_generator(image_path):
+    # Replace with your VM's external IP
+    url = "http://34.16.192.38:8000/inference_file"
+
+    # Construct the conversation payload as a JSON string.
+    # The conversation should have an image placeholder for the image you are sending.
+    payload = {
+        "conversation": [
+            {
+                "role": "User",
+                "content": "<image_placeholder> Provide a professional commentary about this fencing game.",
+                "images": []  # Empty list; image will be provided in the file upload.
+            },
+            {
+                "role": "Assistant",
+                "content": "",
+            }
+        ]
+    }
+
+    # Convert payload to JSON string.
+    payload_str = json.dumps(payload)
+
+    img_data = process_img_compress(image_path)
+
+    # Open your image file (make sure the path is correct).
+    files = {"file": img_data}
+
+    # Send a multipart/form-data POST request with the JSON payload as a form field.
+    data = {"payload": payload_str}
+
+    response = requests.post(url, data=data, files=files)
+    response_json = response.json()
+    logger.info(response_json)
+    yield response_json['response']
 
 async def async_openai_generator(image_path):
     """Generates live commentary for the given image using OpenAI's API."""
@@ -140,7 +217,7 @@ class CommentaryConsumer(AsyncWebsocketConsumer):
     async def process_screenshot(self, image_path):
         """Processes an image and sends generated commentary to clients."""
         try:
-            async for commentary in async_openai_generator(image_path):
+            async for commentary in async_deepseek_generator(image_path):
                 message = {
                     "type": "commentary",
                     "timestamp": time.time(),
