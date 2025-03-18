@@ -179,8 +179,7 @@ const VideoPlayer = ({ userInput }) => {
       reader.onloadend = () => {
           ws.send(reader.result);
       };
-  }, 'image/png');
-  
+  }, 'image/jpg');
     console.log("Screenshot capture complete.");
   };
   
