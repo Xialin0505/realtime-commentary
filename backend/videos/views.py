@@ -5,6 +5,7 @@ from django.core.files.base import ContentFile
 import os
 from django.conf import settings
 from llmserver.views import sync_openai_request
+from llmserver.views import self_deployed_ai
 
 @csrf_exempt
 def upload_screenshot(request):
@@ -16,6 +17,6 @@ def upload_screenshot(request):
             for chunk in image_file.chunks():
                 destination.write(chunk)
 
-        return sync_openai_request(image_file.name)
+        return self_deployed_ai(image_file.name)
     
     return JsonResponse({"error": "invalid request"}, status=400)

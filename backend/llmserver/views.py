@@ -150,14 +150,15 @@ def self_deployed_ai(img_name):
     # Convert payload to JSON string.
     payload_str = json.dumps(payload)
 
-    img_b64_str, img_type = get_image_info(img_name)
+    # img_b64_str, img_type = get_image_info(img_name)
 
-    if not img_type or not img_b64_str:
-        # yield "Error: image not found"
-        return HttpResponse({"image not found"})
+    # if not img_type or not img_b64_str:
+    #     return HttpResponse({"image not found"})
+
+    img_url = settings.IMAGE_ROOT + '/' + img_name
 
     # Open your image file (make sure the path is correct).
-    files = {"file": img_b64_str}
+    files = {"file": open(img_url, "rb")}
 
     # Send a multipart/form-data POST request with the JSON payload as a form field.
     data = {"payload": payload_str}

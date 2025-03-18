@@ -28,7 +28,7 @@ const VideoPlayer = () => {
 
       canvas.toBlob((blob) => {
         const formData = new FormData();
-        formData.append('image', blob, 'screenshot.png');
+        formData.append('image', blob, 'screenshot.jpg');
 
         fetch('http://localhost:8000/api/upload_screenshot/', {
           method: 'POST',
@@ -36,7 +36,7 @@ const VideoPlayer = () => {
         })
           .then(response => handleStream(response.body))
           .catch(error => console.error('Error uploading screenshot:', error));
-      }, 'image/png');
+      }, 'image/jpg');
     }
   };
 
