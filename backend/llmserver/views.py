@@ -129,7 +129,7 @@ def sync_openai_request(img_name):
 
 def self_deployed_ai(img_name):
     # Replace with your VM's external IP
-    url = "http://34.16.192.38:8000/inference_file"
+    url = "http://{}:8000/inference_file".format(os.environ.get(DEEPSEEK_IP))
 
     # Construct the conversation payload as a JSON string.
     # The conversation should have an image placeholder for the image you are sending.
