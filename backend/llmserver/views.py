@@ -129,7 +129,7 @@ def sync_openai_request(img_name):
 
 def self_deployed_ai(img_name):
     # Replace with your VM's external IP
-    url = "http://{}:8000/inference_file".format(os.environ.get(DEEPSEEK_IP))
+    url = "http://{}:8000/inference_file".format(os.environ.get("DEEPSEEK_IP"))
 
     # Construct the conversation payload as a JSON string.
     # The conversation should have an image placeholder for the image you are sending.
@@ -153,8 +153,8 @@ def self_deployed_ai(img_name):
     img_b64_str, img_type = get_image_info(img_name)
 
     if not img_type or not img_b64_str:
-        yield "Error: image not found"
-        return
+        # yield "Error: image not found"
+        return HttpResponse({"image not found"})
 
     # Open your image file (make sure the path is correct).
     files = {"file": img_b64_str}
