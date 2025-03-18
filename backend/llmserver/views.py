@@ -4,6 +4,9 @@ from django.http import HttpResponse, StreamingHttpResponse
 from dotenv import load_dotenv
 from openai import OpenAI, AsyncOpenAI
 
+import json
+import requests
+
 import base64
 import re
 import os
@@ -124,8 +127,48 @@ def sync_openai_generator(img_name):
 def sync_openai_request(img_name):
     return StreamingHttpResponse(sync_openai_generator(img_name))
 
+def self_deployed_ai(img_name):
+    # Replace with your VM's external IP
+    url = "http://34.16.192.38:8000/inference_file"
+
+    # Construct the conversation payload as a JSON string.
+    # The conversation should have an image placeholder for the image you are sending.
+    payload = {
+        "conversation": [
+            {
+                "role": "User",
+                "content": "<image_placeholder> Provide a professional commentary about this fencing game.",
+                "images": []  # Empty list; image will be provided in the file upload.
+            },
+            {
+                "role": "Assistant",
+                "content": "",
+            }
+        ]
+    }
+
+    # Convert payload to JSON string.
+    payload_str = json.dumps(payload)
+
+    img_b64_str, img_type = get_image_info(img_name)
+
+    if not img_type or not img_b64_str:
+        yield "Error: image not found"
+        return
+
+    # Open your image file (make sure the path is correct).
+    files = {"file": img_b64_str}
+
+    # Send a multipart/form-data POST request with the JSON payload as a form field.
+    data = {"payload": payload_str}
+
+    response = requests.post(url, data=data, files=files)
+    return HttpResponse(response)
+    
+
 ### The real generator API ###
 ### request URL: http://127.0.0.1:8000/generate/?img_name=xxx.png ###
 def llmserver(request):
     img_name = request.GET.get('img_name')
-    return sync_openai_request(img_name)
+    #return sync_openai_request(img_name)
+    return self_deployed_ai(img_name)
