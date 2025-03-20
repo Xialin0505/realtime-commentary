@@ -11,11 +11,14 @@ import cv2
 from channels.generic.websocket import AsyncWebsocketConsumer
 from openai import AsyncOpenAI
 from django.conf import settings
+from dotenv import load_dotenv
 import numpy as np
 
 logger = logging.getLogger(__name__)
 REDIS_HOST = os.getenv("REDIS_HOST", "redis")
 redis_client = redis.Redis(host=REDIS_HOST, port=6379, db=0, decode_responses=True)
+
+load_dotenv()
 
 def convert_image_to_base64(image_path):
     """Converts an image to a Base64-encoded string."""
@@ -69,10 +72,8 @@ def process_img_compress(img_path):
 
 async def async_deepseek_generator(image_path):
     # Replace with your VM's external IP
-    from dotenv import load_dotenv
-    load_dotenv()
-    
-    url = "http://{}:8000/inference_file".format(api_key=os.environ.get("DEEPSEEK_IP"))
+    url = "http://{}:8000/inference_file".format(os.environ.get("DEEPSEEK_IP"))
+    print(url)
 
     # Construct the conversation payload as a JSON string.
     # The conversation should have an image placeholder for the image you are sending.
