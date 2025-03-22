@@ -26,8 +26,11 @@ prompt = [
         current score, if the picture does not have two people wearing white suit (Fencer), holding the weapon, then provide a summary
         of the game so far. Consider not only the current game state but also the previous three game states. 
         This comment will be used as part of the live commentary system, along with other past and future messages. """,
-    """ <image_placeholder> provide the current score for the fencing game, who is the leading, and by how many score. """,
-    """ <image_placeholder> provide a summary of the game so far with no more than three sentence. """
+    """ <image_placeholder> provide an professional, one sentence commentary for this fencing game picture, by providing
+        the current score for the fencing game, who is the leading, and by how many score. """,
+    """ <image_placeholder> provide an professional, one sentence commentary for this fencing game picture, by providing
+        a summary of the game so far with no more than three sentence. Can include the time left, the current
+        scoring, and the score both team need to win the game, or the tactic Fencer is taking. """
 ]
 
 def convert_image_to_base64(image_path):
@@ -85,7 +88,7 @@ async def async_deepseek_generator(image_path):
     url = "http://{}:8000/inference_file".format(os.environ.get("DEEPSEEK_IP"))
 
     # Construct the conversation payload as a JSON string.
-    # The conversation should have an image placeholder for the image you are sending.
+    # The conversation should have an image placeholder for the image you are sending. 
     payload = {
         "conversation": [
             {
