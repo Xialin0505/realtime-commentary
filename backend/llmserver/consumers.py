@@ -20,6 +20,16 @@ redis_client = redis.Redis(host=REDIS_HOST, port=6379, db=0, decode_responses=Tr
 
 load_dotenv()
 
+prompt = [
+    """ <image_placeholder> provide an professional, one or two sentence commentary for this fencing game picture for
+        the audience that is natural and does not delve into too many details. If there is score, provide the
+        current score, if the picture does not have two people wearing white suit (Fencer), holding the weapon, then provide a summary
+        of the game so far. Consider not only the current game state but also the previous three game states. 
+        This comment will be used as part of the live commentary system, along with other past and future messages. """,
+    """ <image_placeholder> provide the current score for the fencing game, who is the leading, and by how many score. """,
+    """ <image_placeholder> provide a summary of the game so far with no more than three sentence. """
+]
+
 def convert_image_to_base64(image_path):
     """Converts an image to a Base64-encoded string."""
     with open(image_path, "rb") as image_file:
@@ -80,7 +90,7 @@ async def async_deepseek_generator(image_path):
         "conversation": [
             {
                 "role": "User",
-                "content": "<image_placeholder> Provide a professional commentary about this fencing game.",
+                "content": prompt[0],
                 "images": []  # Empty list; image will be provided in the file upload.
             },
             {
