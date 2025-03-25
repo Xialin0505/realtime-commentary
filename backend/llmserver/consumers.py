@@ -8,6 +8,7 @@ import base64
 import requests
 import asyncio
 import cv2
+import os
 from channels.generic.websocket import AsyncWebsocketConsumer
 from openai import AsyncOpenAI
 from django.conf import settings
@@ -21,11 +22,8 @@ redis_client = redis.Redis(host=REDIS_HOST, port=6379, db=0, decode_responses=Tr
 load_dotenv()
 
 prompt = [
-    """ <image_placeholder> provide an professional, one or two sentence commentary for this fencing game picture for
-        the audience that is natural and does not delve into too many details. If there is score, provide the
-        current score, if the picture does not have two people wearing white suit (Fencer), holding the weapon, then provide a summary
-        of the game so far. Consider not only the current game state but also the previous three game states. 
-        This comment will be used as part of the live commentary system, along with other past and future messages. """,
+    """ <image_placeholder> provide an descriptive commentary or provide tactical insight, or tracks the score/status, with memory of
+        the previous scene of this session. """,
     """ <image_placeholder> provide an professional, one sentence commentary for this fencing game picture, by providing
         the current score for the fencing game, who is the leading, and by how many score. """,
     """ <image_placeholder> provide an professional, one sentence commentary for this fencing game picture, by providing
@@ -209,6 +207,11 @@ class CommentaryConsumer(AsyncWebsocketConsumer):
                     await self.channel_layer.group_send(
                         self.room_group_name, {"type": "broadcast_message", "message": message}
                     )
+                elif data.get("type") == "screenshot":
+                    _, base64_str = data.get("image").split(",", 1)
+                    bytes_data = bytearray(base64.b64decode(base64_str))
+                    timestamp = data.get("timestamp")
+                    await self.receive_bytes(bytes_data, timestamp)
 
             elif bytes_data:
                 await self.receive_bytes(bytes_data)
@@ -216,11 +219,15 @@ class CommentaryConsumer(AsyncWebsocketConsumer):
         except Exception as e:
             logger.error(f"Error processing WebSocket message: {e}")
 
-    async def receive_bytes(self, bytes_data):
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as temp_file:
+    async def receive_bytes(self, bytes_data, timestamp=0.0):
+        timestamp_formatted = f"_{timestamp:.2f}".replace(".", "_")
+        with tempfile.NamedTemporaryFile(delete=False, suffix=timestamp_formatted + ".png") as temp_file:
             temp_file.write(bytes_data)
             temp_file.flush()
             image_path = temp_file.name
+        
+        with open("/mnt/media/image/" + os.path.basename(image_path), "wb") as f:
+            f.write(bytes_data)
 
         logger.info(f"Saved screenshot to {image_path}, checking file existence...")
         if not os.path.exists(image_path):
@@ -228,12 +235,18 @@ class CommentaryConsumer(AsyncWebsocketConsumer):
         else:
             logger.info("Screenshot successfully saved.")
 
-        await self.process_screenshot(image_path)
+        await self.process_screenshot(image_path, timestamp)
 
-    async def process_screenshot(self, image_path):
+    async def process_screenshot(self, image_path, timestamp):
         """Processes an image and sends generated commentary to clients."""
         try:
             async for commentary in async_deepseek_generator(image_path):
+                if timestamp:
+                    commentary = f"[{timestamp:.2f}] " + commentary
+
+                with open("/mnt/media/text/" + os.path.basename(image_path).replace(".png", ".txt"), "w+") as f:
+                    f.write(commentary)
+
                 message = {
                     "type": "commentary",
                     "timestamp": time.time(),

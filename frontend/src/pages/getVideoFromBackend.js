@@ -114,7 +114,7 @@ const VideoPlayer = ({ userInput }) => {
   useEffect(() => {
     const interval = setInterval(() => {
       captureScreenshot();
-    }, 5000);
+    }, 500);
 
     return () => clearInterval(interval);
   }, []);
@@ -175,9 +175,17 @@ const VideoPlayer = ({ userInput }) => {
 
     canvas.toBlob((blob) => {
       const reader = new FileReader();
-      reader.readAsArrayBuffer(blob);
+      reader.readAsDataURL(blob);
+      
       reader.onloadend = () => {
-          ws.send(reader.result);
+
+        const payload = {
+          type: "screenshot",
+          image: reader.result,
+          timestamp: video.currentTime,
+        };
+        ws.send(JSON.stringify(payload));
+
       };
   }, 'image/png');
   
