@@ -140,12 +140,12 @@ async def async_openai_generator(image_path):
 
     try:
         stream = await client.chat.completions.create(
-            model="gpt-4o",
+            model="ft:gpt-3.5-turbo-0125:sporttech::BFAzKhRv",
             messages=[
                 {
                     "role": "user",
                     "content": [
-                        {"type": "text", "text": prompt},
+                        {"type": "text", "text": prompt[0]},
                         {"type": "image_url", "image_url": {"url": f"data:{img_type};base64,{img_b64_str}"}},
                     ],
                 }
