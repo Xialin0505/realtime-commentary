@@ -22,8 +22,11 @@ redis_client = redis.Redis(host=REDIS_HOST, port=6379, db=0, decode_responses=Tr
 load_dotenv()
 
 prompt = [
-    """ <image_placeholder> provide an descriptive commentary or provide tactical insight, or tracks the score/status, with memory of
-        the previous scene of this session. """,
+    """ <image_placeholder> provide an professional, one or two sentence commentary for this fencing game picture for
+         the audience that is natural and does not delve into too many details. If there is score, provide the
+         current score, if the picture does not have two people wearing white suit (Fencer), holding the weapon, then provide a summary
+         of the game so far. If the piste lights up, track the score. Either describe the image, provide tactical insight or track the score.
+         Consider not only the current game state but also the previous three game states. """,
     """ <image_placeholder> provide an professional, one sentence commentary for this fencing game picture, by providing
         the current score for the fencing game, who is the leading, and by how many score. """,
     """ <image_placeholder> provide an professional, one sentence commentary for this fencing game picture, by providing
@@ -240,7 +243,7 @@ class CommentaryConsumer(AsyncWebsocketConsumer):
     async def process_screenshot(self, image_path, timestamp):
         """Processes an image and sends generated commentary to clients."""
         try:
-            async for commentary in async_deepseek_generator(image_path):
+            async for commentary in async_openai_generator(image_path):
                 if timestamp:
                     commentary = f"[{timestamp:.2f}] " + commentary
 
