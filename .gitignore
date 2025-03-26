@@ -2,4 +2,5 @@ backend/llmserver/.env
 backend/llmserver/__pycache__/*
 backend/realtime_commentary/__pycache__/*
 dataset/video
+dataset/.env
 **.DS_Store
