@@ -15,7 +15,7 @@ services:
     environment:
       - REDIS_HOST=redis
     #entrypoint: tail -f /dev/null
-    entrypoint: cd backend && daphne -b 0.0.0.0 -p 8000 realtime_commentary.asgi:application
+    entrypoint: daphne -b 0.0.0.0 -p 8000 realtime_commentary.asgi:application
 
   frontend:
     tty: true
