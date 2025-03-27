@@ -24,6 +24,8 @@ segment_size = 20
 
 load_dotenv()
 
+client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+
 prompt = [
     """ <image_placeholder> provide an professional, one or two sentence commentary for this fencing event like a real commetary for 
 the audience that is natural and does not delve into too many details. If the picture does not have two people wearing white suit (Fencer),
@@ -53,8 +55,26 @@ def read_transcript(folder_path):
 
     return result
 
+async def provide_transcript(transcript):
+
+    stream = await client.chat.completions.create(
+        model="gpt-4o",
+        messages = 
+        [
+            {
+                "role": "system", 
+                "content": """provide the fencing commentary for all the following conversation in this session, 
+                                using the given transcript as example. """},
+            {
+                "role": "user", 
+                "content": "".join(transcript)}
+        ]
+    )
+
 transcript = read_transcript("../dataset/transcript")
 number = len(transcript)
+
+asyncio.run(provide_transcript(transcript))
 
 def convert_image_to_base64(image_path):
     """Converts an image to a Base64-encoded string."""
@@ -159,9 +179,8 @@ Consider not only the current pictures but also the previous three conversation.
     
     logger.info(f"Sending image to OpenAI, size: {len(img_b64_str)} bytes")
 
-    client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
-
     global idx
+    global transcript
 
     start_idx = idx
     end_idx = min(number, idx + segment_size)
@@ -183,7 +202,7 @@ Consider not only the current pictures but also the previous three conversation.
             messages=[
                 {
                     "role": "system", 
-                    "content": "You're a fencing commentator. Respond professionally with clear, concise game insights."
+                    "content": "You're a fencing commentator. Respond professionally with the provided commentary example."
                 },
                 {
                     "role": "assistant", 

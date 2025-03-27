@@ -14,8 +14,8 @@ services:
       - redis
     environment:
       - REDIS_HOST=redis
-    #entrypoint: tail -f /dev/null
-    entrypoint: daphne -b 0.0.0.0 -p 8000 realtime_commentary.asgi:application
+    entrypoint: tail -f /dev/null
+    #entrypoint: daphne -b 0.0.0.0 -p 8000 realtime_commentary.asgi:application
 
   frontend:
     tty: true
@@ -29,8 +29,8 @@ services:
     volumes:
       - ./frontend:/mnt
     working_dir: /usr/src/app
-    #entrypoint: tail -f /dev/null
-    entrypoint: npm start
+    entrypoint: tail -f /dev/null
+    #entrypoint: npm start
 
   redis:
     image: redis:latest
