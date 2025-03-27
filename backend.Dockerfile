@@ -16,7 +16,6 @@ RUN pip3 install requests Pillow numpy opencv-python
 
 # Copy your application code into the container
 COPY ./backend ./backend
-COPY ./dataset ./dataset
 
 # Expose a port your application will listen on
 EXPOSE 8000
