@@ -10,11 +10,11 @@ openai.api_key = os.environ.get("OPENAI_API_KEY")
 
 train_data_file = "./train_data.jsonl"
 train_id_file = "./id.txt"
-prompt = """provide an professional, one or two sentence commentary for this fencing game picture for 
+prompt = """provide an professional, one or two sentence commentary for this fencing event like a real commetary for 
 the audience that is natural and does not delve into too many details. If there is score, provide the
 current score, if the picture does not have two people wearing white suit (Fencer), holding the weapon, then provide a summary
 of the game so far. If the piste lights up, track the score. Either describe the image, provide tactical insight or track the score.
-Consider not only the current game state but also the previous three game states."""
+Consider not only the current game state but also the previous three game states. Keep it brief."""
 
 def convert_folder_to_jsonl(folder_path, output_path, prompt):
     with open(output_path, 'w', encoding='utf-8') as out_f:
@@ -24,7 +24,7 @@ def convert_folder_to_jsonl(folder_path, output_path, prompt):
                 with open(file_path, 'r', encoding='utf-8') as f:
                     text = f.read()
 
-                paragraphs = [p.strip() for p in text.split('\n\n') if p.strip()]
+                paragraphs = [p.strip() for p in text.split('\n') if p.strip()]
                 for para in paragraphs:
                     record = {
                         "messages": [
@@ -42,7 +42,7 @@ def train_chat():
     
     fine_tune_response = openai.fine_tuning.jobs.create(
         training_file=file_id,
-        model="gpt-3.5-turbo"
+        model="gpt-4o-2024-08-06"
     )
     fine_tune_id = fine_tune_response.id
     
