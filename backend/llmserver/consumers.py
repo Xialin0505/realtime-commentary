@@ -18,21 +18,43 @@ import numpy as np
 logger = logging.getLogger(__name__)
 REDIS_HOST = os.getenv("REDIS_HOST", "redis")
 redis_client = redis.Redis(host=REDIS_HOST, port=6379, db=0, decode_responses=True)
+idx = 0
+
+segment_size = 20
 
 load_dotenv()
 
 prompt = [
-    """ <image_placeholder> provide an professional, one or two sentence commentary for this fencing game picture for
-         the audience that is natural and does not delve into too many details. If there is score, provide the
-         current score, if the picture does not have two people wearing white suit (Fencer), holding the weapon, then provide a summary
-         of the game so far. If the piste lights up, track the score. Either describe the image, provide tactical insight or track the score.
-         Consider not only the current game state but also the previous three game states. """,
-    """ <image_placeholder> provide an professional, one sentence commentary for this fencing game picture, by providing
-        the current score for the fencing game, who is the leading, and by how many score. """,
+    """ <image_placeholder> provide an professional, one or two sentence commentary for this fencing event like a real commetary for 
+the audience that is natural and does not delve into too many details. If the picture does not have two people wearing white suit (Fencer),
+holding the weapon, then provide a summary or tactic of the game so far. If the piste lights up, track the score. 
+Either describe the image or provide tactical insight. keep track of the score.
+Consider not only the current pictures but also the previous three conversation. Keep it brief. """,
+"""
+provide an professional, one or two sentence commentary for this fencing event like a real commetary for 
+the audience that is natural and does not delve into too many details. Give out the tactic of the fencers.
+"""
     """ <image_placeholder> provide an professional, one sentence commentary for this fencing game picture, by providing
         a summary of the game so far with no more than three sentence. Can include the time left, the current
         scoring, and the score both team need to win the game, or the tactic Fencer is taking. """
 ]
+
+def read_transcript(folder_path):
+    result = []
+    for filename in os.listdir(folder_path):
+        if filename.endswith('.txt'):
+            file_path = os.path.join(folder_path, filename)
+            with open(file_path, 'r', encoding='utf-8') as f:
+                text = f.read()
+
+            paragraphs = [p.strip() for p in text.split('\n') if p.strip()]
+            for para in paragraphs:
+                result.append(para)
+
+    return result
+
+transcript = read_transcript("../dataset/transcript")
+number = len(transcript)
 
 def convert_image_to_base64(image_path):
     """Converts an image to a Base64-encoded string."""
@@ -122,11 +144,12 @@ async def async_deepseek_generator(image_path):
 
 async def async_openai_generator(image_path):
     """Generates live commentary for the given image using OpenAI's API."""
-    prompt = """
-                provide an appropriate, one-sentence, concise commentary for this picture to 
-                entertain the audience that is natural and does not delve into too many details. 
-                Consider not only the current game state but also the previous three game states. 
-                This comment will be used as part of the live commentary system, along with other past and future messages. 
+    gpt_prompt = """
+                provide an professional, one or two sentence commentary for this fencing event like a real commetary for 
+the audience that is natural and does not delve into too many details. If the picture does not have two people wearing white suit (Fencer),
+holding the weapon, then provide a summary or tactic of the game so far. If the piste lights up, track the score. 
+Either describe the image, provide tactical insight or track the score.
+Consider not only the current pictures but also the previous three conversation. Keep it brief.
             """
 
     img_b64_str, img_type = get_image_info(image_path)
@@ -138,14 +161,40 @@ async def async_openai_generator(image_path):
 
     client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
+    global idx
+
+    start_idx = idx
+    end_idx = min(number, idx + segment_size)
+    if end_idx == number:
+        idx = 0
+    else:
+        idx = (idx + segment_size) % number
+
+    prompt_idx = 0
+    if end_idx % 3 == 0:
+        prompt_idx = 1
+    elif end_idx % 8 == 0:
+        prompt_idx = 2
+
     try:
         stream = await client.chat.completions.create(
-            model="ft:gpt-3.5-turbo-0125:sporttech::BFAzKhRv",
+            model="gpt-4o",
+            
             messages=[
+                {
+                    "role": "system", 
+                    "content": "You're a fencing commentator. Respond professionally with clear, concise game insights."
+                },
+                {
+                    "role": "assistant", 
+                    "content": "".join(transcript[start_idx:end_idx])
+                },
                 {
                     "role": "user",
                     "content": [
-                        {"type": "text", "text": prompt[0]},
+                        {"type": "text", "text": prompt[prompt_idx]},
+                        {"type": "image_url", "image_url": {"url": f"data:{img_type};base64,{img_b64_str}"}},
+                        {"type": "image_url", "image_url": {"url": f"data:{img_type};base64,{img_b64_str}"}},
                         {"type": "image_url", "image_url": {"url": f"data:{img_type};base64,{img_b64_str}"}},
                     ],
                 }
@@ -166,7 +215,8 @@ async def async_openai_generator(image_path):
 
     except Exception as e:
         logger.error(f"OpenAI API error: {e}")
-        yield "Error: Failed to generate commentary."
+        # yield "Error: Failed to generate commentary."
+        yield
 
 class CommentaryConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -229,7 +279,7 @@ class CommentaryConsumer(AsyncWebsocketConsumer):
             temp_file.flush()
             image_path = temp_file.name
         
-        with open("/mnt/media/image/" + os.path.basename(image_path), "wb") as f:
+        with open("/mnt/backend/media/image/" + os.path.basename(image_path), "wb") as f:
             f.write(bytes_data)
 
         logger.info(f"Saved screenshot to {image_path}, checking file existence...")
@@ -247,7 +297,7 @@ class CommentaryConsumer(AsyncWebsocketConsumer):
                 if timestamp:
                     commentary = f"[{timestamp:.2f}] " + commentary
 
-                with open("/mnt/media/text/" + os.path.basename(image_path).replace(".png", ".txt"), "w+") as f:
+                with open("/mnt/backend/media/text/" + os.path.basename(image_path).replace(".png", ".txt"), "w+") as f:
                     f.write(commentary)
 
                 message = {
