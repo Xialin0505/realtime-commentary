@@ -71,7 +71,9 @@ async def provide_transcript(transcript):
         ]
     )
 
-transcript = read_transcript("../dataset/transcript")
+    print("Done providing the context")
+
+transcript = read_transcript("./dataset/transcript")
 number = len(transcript)
 
 asyncio.run(provide_transcript(transcript))
