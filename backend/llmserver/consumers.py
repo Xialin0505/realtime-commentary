@@ -14,6 +14,7 @@ from openai import AsyncOpenAI
 from django.conf import settings
 from dotenv import load_dotenv
 import numpy as np
+import random
 
 logger = logging.getLogger(__name__)
 REDIS_HOST = os.getenv("REDIS_HOST", "redis")
@@ -22,148 +23,85 @@ redis_client = redis.Redis(host=REDIS_HOST, port=6379, db=0, decode_responses=Tr
 load_dotenv()
 
 prompt = [
-    """ <image_placeholder> provide an descriptive commentary or provide tactical insight, or tracks the score/status, with memory of
+    """ provide an descriptive commentary or provide tactical insight, or tracks the score/status, with memory of
         the previous scene of this session. """,
-    """ <image_placeholder> provide an professional, one sentence commentary for this fencing game picture, by providing
+    """ provide an professional, one sentence commentary for this fencing game picture, by providing
         the current score for the fencing game, who is the leading, and by how many score. """,
-    """ <image_placeholder> provide an professional, one sentence commentary for this fencing game picture, by providing
+    """ provide an professional, one sentence commentary for this fencing game picture, by providing
         a summary of the game so far with no more than three sentence. Can include the time left, the current
         scoring, and the score both team need to win the game, or the tactic Fencer is taking. """
 ]
 
-def convert_image_to_base64(image_path):
-    """Converts an image to a Base64-encoded string."""
-    with open(image_path, "rb") as image_file:
-        return base64.b64encode(image_file.read()).decode("utf-8")
+class DeepSeekBatchGenerator:
+    def __init__(self, prompt, batch_size=4):
+        self.buffer = []
+        self.prompt = prompt
+        self.batch_size = batch_size
 
-def get_image_info(image_path):
-    """Returns the Base64 encoded image and its MIME type."""
-    _, file_extension = os.path.splitext(image_path)
-    file_extension = file_extension.lower()[1:]
-    img_type = f"image/{file_extension}" if file_extension in ["jpeg", "jpg", "png"] else None
-    return (convert_image_to_base64(image_path), img_type) if img_type else (None, None)
+    def process_img_compress(self, img_path):
+        with open(img_path, 'rb') as f:
+            img_bytes = f.read()
 
-def process_img_compress(img_path):
-    with open(img_path, 'rb') as f:
-        img_bytes = f.read()
+        img_array = np.frombuffer(img_bytes, np.uint8)
+        img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+        img_resized = cv2.resize(img, (384, 384))
+        img_transposed = np.transpose(img_resized, (2, 0, 1))
+        new_channel = np.ones((1, 384, 384), dtype=img_transposed.dtype)
+        img_final = np.concatenate((img_transposed, new_channel), axis=0)
+        img_final = np.transpose(img_final, (1, 2, 0))
 
-    # Step 2: Convert bytes to NumPy array
-    img_array = np.frombuffer(img_bytes, np.uint8)
+        if img_final.dtype != np.uint8:
+            img_final = img_final.astype(np.uint8)
 
-    # Step 3: Decode image (BGR format)
-    img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)  # Shape: [H, W, 3]
+        success, encoded_img = cv2.imencode('.jpg', img_final)
+        return encoded_img.tobytes() if success else None
 
-    # Step 4: Resize to (384, 384) if needed
-    img_resized = cv2.resize(img, (384, 384))  # Shape: [384, 384, 3]
+    async def add_image(self, image_path):
+        self.buffer.append(self.process_img_compress(image_path))
+        logger.info(f"Collected {len(self.buffer)} image(s).")
 
-    # Step 5: Transpose to [3, 384, 384] (channels first)
-    img_transposed = np.transpose(img_resized, (2, 0, 1))  # Shape: [3, 384, 384]
+        if len(self.buffer) < self.batch_size:
+            return
+        
+        # Local test
+        # await asyncio.sleep(random.uniform(30, 50))
+        # logger.info(f"response {len(self.buffer)}")
+        # self.buffer = []
+        # yield f"response {len(self.buffer)}"
 
-    # Step 6: Add a fourth channel (ones)
-    new_channel = np.ones((1, 384, 384), dtype=img_transposed.dtype)
-
-    # Step 7: Concatenate to [4, 384, 384]
-    img_final = np.concatenate((img_transposed, new_channel), axis=0)
-
-    img_final = np.transpose(img_final, (1, 2, 0))
-
-    if img_final.dtype != np.uint8:
-        img_final = img_final.astype(np.uint8)
-
-    # Step 1: Encode image (supports alpha channel)
-    success, encoded_img = cv2.imencode('.jpg', img_final)
-
-    if success:
-        # Step 2: Get binary data
-        img_bytes = encoded_img.tobytes()
-    else:
-        return None
-
-    return img_bytes
-
-async def async_deepseek_generator(image_path):
-    # Replace with your VM's external IP
-    url = "http://{}:8000/inference_file".format(os.environ.get("DEEPSEEK_IP"))
-
-    # Construct the conversation payload as a JSON string.
-    # The conversation should have an image placeholder for the image you are sending. 
-    payload = {
-        "conversation": [
-            {
-                "role": "User",
-                "content": prompt[0],
-                "images": []  # Empty list; image will be provided in the file upload.
-            },
-            {
-                "role": "Assistant",
-                "content": "",
-            }
-        ]
-    }
-
-    # Convert payload to JSON string.
-    payload_str = json.dumps(payload)
-
-    img_data = process_img_compress(image_path)
-
-    # Open your image file (make sure the path is correct).
-    files = {"file": img_data}
-
-    # Send a multipart/form-data POST request with the JSON payload as a form field.
-    data = {"payload": payload_str}
-
-    response = requests.post(url, data=data, files=files)
-    response_json = response.json()
-    logger.info(response_json)
-    yield response_json['response']
-
-async def async_openai_generator(image_path):
-    """Generates live commentary for the given image using OpenAI's API."""
-    prompt = """
-                provide an appropriate, one-sentence, concise commentary for this picture to 
-                entertain the audience that is natural and does not delve into too many details. 
-                Consider not only the current game state but also the previous three game states. 
-                This comment will be used as part of the live commentary system, along with other past and future messages. 
-            """
-
-    img_b64_str, img_type = get_image_info(image_path)
-    if not img_b64_str or not img_type:
-        yield "Error: Image not found."
-        return
-    
-    logger.info(f"Sending image to OpenAI, size: {len(img_b64_str)} bytes")
-
-    client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
-
-    try:
-        stream = await client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
+        url = "http://{}:8000/inference_file".format(os.environ.get("DEEPSEEK_IP"))
+        payload = {
+            "conversation": [
                 {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": prompt},
-                        {"type": "image_url", "image_url": {"url": f"data:{img_type};base64,{img_b64_str}"}},
-                    ],
+                    "role": "User",
+                    "content":" ".join(["<image_placeholder>" for _ in range(self.batch_size)]) + f"{self.prompt}",
+                    "images": ["<image>" for _ in range(self.batch_size)]
+                },
+                {
+                    "role": "Assistant",
+                    "content": "",
                 }
-            ],
-            stream=True,
-        )
+            ]
+        }
+        payload_str = json.dumps(payload)
 
-        response_text = ""
-        async for chunk in stream:
-            content = chunk.choices[0].delta.content
-            if content:
-                response_text += content
+        files = [("files", img) for img in self.buffer]
+        data = {"payload": payload_str}
 
-        if response_text.strip():
-            yield response_text.strip()
-        else:
-            yield "No valid response generated."
+        # Async version
+        # async with httpx.AsyncClient() as client:
+        #     response = await client.post(url, data=data, files=files)
 
-    except Exception as e:
-        logger.error(f"OpenAI API error: {e}")
-        yield "Error: Failed to generate commentary."
+        response = requests.post(url, data=data, files=files)
+        logger.info(f"Collected {self.batch_size} image(s), sent to DeepSeek.")
+
+        response_json = response.json()
+        logger.info(response_json)
+
+        self.buffer = []
+        yield response_json['response']
+
+generator = DeepSeekBatchGenerator(prompt=prompt[0])
 
 class CommentaryConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -240,7 +178,8 @@ class CommentaryConsumer(AsyncWebsocketConsumer):
     async def process_screenshot(self, image_path, timestamp):
         """Processes an image and sends generated commentary to clients."""
         try:
-            async for commentary in async_deepseek_generator(image_path):
+            async for commentary in generator.add_image(image_path):
+
                 if timestamp:
                     commentary = f"[{timestamp:.2f}] " + commentary
 

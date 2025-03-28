@@ -3,3 +3,5 @@ backend/llmserver/__pycache__/*
 backend/realtime_commentary/__pycache__/*
 dataset/video
 **.DS_Store
+backend/media/image
+backend/media/text
