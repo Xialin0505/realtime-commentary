@@ -1,8 +1,6 @@
 import json
-import time
 import os
 import redis
-import tempfile
 import logging
 import base64
 import requests
@@ -80,168 +78,94 @@ number = len(transcript)
 
 asyncio.run(provide_transcript(transcript))
 
-def convert_image_to_base64(image_path):
-    """Converts an image to a Base64-encoded string."""
-    with open(image_path, "rb") as image_file:
-        return base64.b64encode(image_file.read()).decode("utf-8")
+class OpenAIBatchGenerator:
+    def __init__(self, prompt_list, transcript, segment_size=20, batch_size=1):
+        self.prompt_list = prompt_list
+        self.transcript = transcript
+        self.segment_size = segment_size
+        self.batch_size = batch_size
+        self.buffer = []
+        self.idx = 0
+        self.total = len(transcript)
 
-def get_image_info(image_path):
-    """Returns the Base64 encoded image and its MIME type."""
-    _, file_extension = os.path.splitext(image_path)
-    file_extension = file_extension.lower()[1:]
-    img_type = f"image/{file_extension}" if file_extension in ["jpeg", "jpg", "png"] else None
-    return (convert_image_to_base64(image_path), img_type) if img_type else (None, None)
+    def get_image_info(self, image_path):
+        """Returns base64 and MIME type"""
+        _, ext = os.path.splitext(image_path)
+        ext = ext.lower()[1:]
+        mime = f"image/{ext}" if ext in ["jpeg", "jpg", "png"] else None
+        if not mime:
+            return None, None
+        with open(image_path, "rb") as f:
+            b64 = base64.b64encode(f.read()).decode("utf-8")
+        return b64, mime
 
-def process_img_compress(img_path):
-    with open(img_path, 'rb') as f:
-        img_bytes = f.read()
+    async def add_image(self, image_path):
+        """Add image and yield only when buffer is full"""
+        img_b64, img_type = self.get_image_info(image_path)
+        if not img_b64 or not img_type:
+            yield "Error: Invalid image."
+            return
+        
+        self.buffer.append((img_b64, img_type))
+        logger.info(f"[OpenAI-Batch] Buffered {len(self.buffer)}/{self.batch_size} image(s).")
 
-    # Step 2: Convert bytes to NumPy array
-    img_array = np.frombuffer(img_bytes, np.uint8)
+        if len(self.buffer) < self.batch_size:
+            return
 
-    # Step 3: Decode image (BGR format)
-    img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)  # Shape: [H, W, 3]
+        # Prepare transcript context
+        start_idx = self.idx
+        end_idx = min(self.total, self.idx + self.segment_size)
+        context_text = "".join(self.transcript[start_idx:end_idx])
 
-    # Step 4: Resize to (384, 384) if needed
-    img_resized = cv2.resize(img, (384, 384))  # Shape: [384, 384, 3]
-
-    # Step 5: Transpose to [3, 384, 384] (channels first)
-    img_transposed = np.transpose(img_resized, (2, 0, 1))  # Shape: [3, 384, 384]
-
-    # Step 6: Add a fourth channel (ones)
-    new_channel = np.ones((1, 384, 384), dtype=img_transposed.dtype)
-
-    # Step 7: Concatenate to [4, 384, 384]
-    img_final = np.concatenate((img_transposed, new_channel), axis=0)
-
-    img_final = np.transpose(img_final, (1, 2, 0))
-
-    if img_final.dtype != np.uint8:
-        img_final = img_final.astype(np.uint8)
-
-    # Step 1: Encode image (supports alpha channel)
-    success, encoded_img = cv2.imencode('.jpg', img_final)
-
-    if success:
-        # Step 2: Get binary data
-        img_bytes = encoded_img.tobytes()
-    else:
-        return None
-
-    return img_bytes
-
-async def async_deepseek_generator(image_path):
-    # Replace with your VM's external IP
-    url = "http://{}:8000/inference_file".format(os.environ.get("DEEPSEEK_IP"))
-
-    # Construct the conversation payload as a JSON string.
-    # The conversation should have an image placeholder for the image you are sending. 
-    payload = {
-        "conversation": [
-            {
-                "role": "User",
-                "content": prompt[0],
-                "images": []  # Empty list; image will be provided in the file upload.
-            },
-            {
-                "role": "Assistant",
-                "content": "",
-            }
-        ]
-    }
-
-    # Convert payload to JSON string.
-    payload_str = json.dumps(payload)
-
-    img_data = process_img_compress(image_path)
-
-    # Open your image file (make sure the path is correct).
-    files = {"file": img_data}
-
-    # Send a multipart/form-data POST request with the JSON payload as a form field.
-    data = {"payload": payload_str}
-
-    response = requests.post(url, data=data, files=files)
-    response_json = response.json()
-    logger.info(response_json)
-    yield response_json['response']
-
-async def async_openai_generator(image_path):
-    """Generates live commentary for the given image using OpenAI's API."""
-    gpt_prompt = """
-                    provide an professional, one or two sentence commentary for this fencing event like a real commetary for 
-                    the audience that is natural and does not delve into too many details. If the picture does not have two people wearing white suit (Fencer),
-                    holding the weapon, then provide a summary or tactic of the game so far. If the piste lights up, track the score. 
-                    Either describe the image, provide tactical insight or track the score.
-                    Consider not only the current pictures but also the previous three conversation. Keep it brief.
-                """
-
-    img_b64_str, img_type = get_image_info(image_path)
-    if not img_b64_str or not img_type:
-        yield "Error: Image not found."
-        return
-    
-    logger.info(f"Sending image to OpenAI, size: {len(img_b64_str)} bytes")
-
-    global idx
-    global transcript
-
-    start_idx = idx
-    end_idx = min(number, idx + segment_size)
-    if end_idx == number:
-        idx = 0
-    else:
-        idx = (idx + segment_size) % number
-
-    prompt_idx = 0
-    if end_idx % 3 == 0:
-        prompt_idx = 1
-    elif end_idx % 8 == 0:
-        prompt_idx = 2
-
-    prompt_idx = prompt_idx % len(prompt) 
-
-    try:
-        stream = await client.chat.completions.create(
-            model="gpt-4o",
-            
-            messages=[
-                {
-                    "role": "system", 
-                    "content": "You're a fencing commentator. Respond professionally with the provided commentary example."
-                },
-                {
-                    "role": "assistant", 
-                    "content": "".join(transcript[start_idx:end_idx])
-                },
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": prompt[prompt_idx]},
-                        {"type": "image_url", "image_url": {"url": f"data:{img_type};base64,{img_b64_str}"}},
-                        {"type": "image_url", "image_url": {"url": f"data:{img_type};base64,{img_b64_str}"}},
-                        {"type": "image_url", "image_url": {"url": f"data:{img_type};base64,{img_b64_str}"}},
-                    ],
-                }
-            ],
-            stream=True,
-        )
-
-        response_text = ""
-        async for chunk in stream:
-            content = chunk.choices[0].delta.content
-            if content:
-                response_text += content
-
-        if response_text.strip():
-            yield response_text.strip()
+        # update idx for next batch
+        if end_idx == self.total:
+            self.idx = 0
         else:
-            yield "No valid response generated."
+            self.idx = (self.idx + self.segment_size) % self.total
 
-    except Exception as e:
-        logger.error(f"OpenAI API error: {e}")
-        yield "Error: Failed to generate commentary."
-        # yield
+        # choose prompt
+        prompt_idx = 0
+        if end_idx % 3 == 0:
+            prompt_idx = 1
+        elif end_idx % 8 == 0:
+            prompt_idx = 2
+        selected_prompt = self.prompt_list[prompt_idx]
+
+        # Construct OpenAI message with image_url format
+        image_contents = [
+            {"type": "image_url", "image_url": {"url": f"data:{img_type};base64,{img_b64}"}}
+            for img_b64, img_type in self.buffer
+        ]
+
+        try:
+            stream = await client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": "system", "content": "You're a fencing commentator. Respond professionally with the provided commentary example."},
+                    {"role": "assistant", "content": context_text},
+                    {"role": "user", "content": [{"type": "text", "text": selected_prompt}] + image_contents}
+                ],
+                stream=True,
+            )
+
+            response_text = ""
+            async for chunk in stream:
+                content = chunk.choices[0].delta.content
+                if content:
+                    response_text += content
+
+            self.buffer = []  # clear buffer after use
+
+            if response_text.strip():
+                yield response_text.strip()
+            else:
+                yield "No valid response generated."
+
+        except Exception as e:
+            logger.error(f"OpenAI API error: {e}")
+            yield "Error: Failed to generate commentary."
+
+generator = OpenAIBatchGenerator(prompt_list=prompt, transcript=transcript, segment_size=20, batch_size=4)
 
 class CommentaryConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -315,7 +239,8 @@ class CommentaryConsumer(AsyncWebsocketConsumer):
     async def process_screenshot(self, image_path, timestamp):
         """Processes an image and sends generated commentary to clients."""
         try:
-            async for commentary in async_openai_generator(image_path):
+            async for commentary in generator.add_image(image_path):
+
                 if timestamp:
                     commentary = f"[{timestamp}] " + commentary
 
@@ -341,12 +266,12 @@ class CommentaryConsumer(AsyncWebsocketConsumer):
                     self.room_group_name, {"type": "broadcast_message", "message": message}
                 )
         finally: 
-            pass
-        #     try: # delete image after processing (uncomment if needed)
-        #         os.remove(image_path)
-        #         logger.info(f"Deleted temp file: {image_path}")
-        #     except Exception as e:
-        #         logger.error(f"Failed to delete temp file {image_path}: {e}")
+            # pass
+            try: # delete image after processing (uncomment if needed)
+                os.remove(image_path)
+                logger.info(f"Deleted temp file: {image_path}")
+            except Exception as e:
+                logger.error(f"Failed to delete temp file {image_path}: {e}")
 
     async def broadcast_message(self, event):
         """Sends a broadcast message to WebSocket clients."""
