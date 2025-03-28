@@ -9,6 +9,7 @@ import requests
 import asyncio
 import cv2
 import os
+import re
 from channels.generic.websocket import AsyncWebsocketConsumer
 from openai import AsyncOpenAI
 from django.conf import settings
@@ -28,17 +29,18 @@ client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
 prompt = [
     """ <image_placeholder> provide an professional, one or two sentence commentary for this fencing event like a real commetary for 
-the audience that is natural and does not delve into too many details. If the picture does not have two people wearing white suit (Fencer),
-holding the weapon, then provide a summary or tactic of the game so far. If the piste lights up, track the score. 
-Either describe the image or provide tactical insight. keep track of the score.
-Consider not only the current pictures but also the previous three conversation. Keep it brief. """,
-"""
-provide an professional, one or two sentence commentary for this fencing event like a real commetary for 
-the audience that is natural and does not delve into too many details. Give out the tactic of the fencers.
-"""
+        the audience that is natural and does not delve into too many details. If the picture does not have two people wearing white suit (Fencer),
+        holding the weapon, then provide a summary or tactic of the game so far. If the piste lights up, track the score. 
+        Either describe the image or provide tactical insight. keep track of the score.
+        Consider not only the current pictures but also the previous three conversation. Keep it brief. 
+    """,
+    """ provide an professional, one or two sentence commentary for this fencing event like a real commetary for 
+        the audience that is natural and does not delve into too many details. Give out the tactic of the fencers.
+    """,
     """ <image_placeholder> provide an professional, one sentence commentary for this fencing game picture, by providing
         a summary of the game so far with no more than three sentence. Can include the time left, the current
-        scoring, and the score both team need to win the game, or the tactic Fencer is taking. """
+        scoring, and the score both team need to win the game, or the tactic Fencer is taking. 
+    """
 ]
 
 def read_transcript(folder_path):
@@ -167,12 +169,12 @@ async def async_deepseek_generator(image_path):
 async def async_openai_generator(image_path):
     """Generates live commentary for the given image using OpenAI's API."""
     gpt_prompt = """
-                provide an professional, one or two sentence commentary for this fencing event like a real commetary for 
-the audience that is natural and does not delve into too many details. If the picture does not have two people wearing white suit (Fencer),
-holding the weapon, then provide a summary or tactic of the game so far. If the piste lights up, track the score. 
-Either describe the image, provide tactical insight or track the score.
-Consider not only the current pictures but also the previous three conversation. Keep it brief.
-            """
+                    provide an professional, one or two sentence commentary for this fencing event like a real commetary for 
+                    the audience that is natural and does not delve into too many details. If the picture does not have two people wearing white suit (Fencer),
+                    holding the weapon, then provide a summary or tactic of the game so far. If the piste lights up, track the score. 
+                    Either describe the image, provide tactical insight or track the score.
+                    Consider not only the current pictures but also the previous three conversation. Keep it brief.
+                """
 
     img_b64_str, img_type = get_image_info(image_path)
     if not img_b64_str or not img_type:
@@ -196,6 +198,8 @@ Consider not only the current pictures but also the previous three conversation.
         prompt_idx = 1
     elif end_idx % 8 == 0:
         prompt_idx = 2
+
+    prompt_idx = prompt_idx % len(prompt) 
 
     try:
         stream = await client.chat.completions.create(
@@ -236,8 +240,8 @@ Consider not only the current pictures but also the previous three conversation.
 
     except Exception as e:
         logger.error(f"OpenAI API error: {e}")
-        # yield "Error: Failed to generate commentary."
-        yield
+        yield "Error: Failed to generate commentary."
+        # yield
 
 class CommentaryConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -268,7 +272,7 @@ class CommentaryConsumer(AsyncWebsocketConsumer):
                 if data.get("type") == "chat":
                     message = {
                         "type": "chat",
-                        "timestamp": time.time(),
+                        "timestamp": timestamp,
                         "username": data.get("username", "anonymous"),
                         "message": data["message"],
                     }
@@ -294,13 +298,10 @@ class CommentaryConsumer(AsyncWebsocketConsumer):
             logger.error(f"Error processing WebSocket message: {e}")
 
     async def receive_bytes(self, bytes_data, timestamp=0.0):
-        timestamp_formatted = f"_{timestamp:.2f}".replace(".", "_")
-        with tempfile.NamedTemporaryFile(delete=False, suffix=timestamp_formatted + ".png") as temp_file:
-            temp_file.write(bytes_data)
-            temp_file.flush()
-            image_path = temp_file.name
+        formatted_timestamp = re.sub(r"[:.]", "_", timestamp)
+        image_path = f"/mnt/media/image/{self.video_id}_frame_{formatted_timestamp}.png"
         
-        with open("/mnt/backend/media/image/" + os.path.basename(image_path), "wb") as f:
+        with open(image_path, "wb") as f:
             f.write(bytes_data)
 
         logger.info(f"Saved screenshot to {image_path}, checking file existence...")
@@ -316,14 +317,14 @@ class CommentaryConsumer(AsyncWebsocketConsumer):
         try:
             async for commentary in async_openai_generator(image_path):
                 if timestamp:
-                    commentary = f"[{timestamp:.2f}] " + commentary
+                    commentary = f"[{timestamp}] " + commentary
 
-                with open("/mnt/backend/media/text/" + os.path.basename(image_path).replace(".png", ".txt"), "w+") as f:
+                with open("/mnt/media/text/" + os.path.basename(image_path).replace(".png", ".txt"), "w+") as f:
                     f.write(commentary)
 
                 message = {
                     "type": "commentary",
-                    "timestamp": time.time(),
+                    "timestamp": timestamp,
                     "video_id": self.video_id,
                     "content": commentary,
                 }
@@ -339,12 +340,13 @@ class CommentaryConsumer(AsyncWebsocketConsumer):
                 await self.channel_layer.group_send(
                     self.room_group_name, {"type": "broadcast_message", "message": message}
                 )
-        finally:
-            try:
-                os.remove(image_path)
-                logger.info(f"Deleted temp file: {image_path}")
-            except Exception as e:
-                logger.error(f"Failed to delete temp file {image_path}: {e}")
+        finally: 
+            pass
+        #     try: # delete image after processing (uncomment if needed)
+        #         os.remove(image_path)
+        #         logger.info(f"Deleted temp file: {image_path}")
+        #     except Exception as e:
+        #         logger.error(f"Failed to delete temp file {image_path}: {e}")
 
     async def broadcast_message(self, event):
         """Sends a broadcast message to WebSocket clients."""

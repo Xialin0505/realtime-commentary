@@ -28,8 +28,8 @@ services:
     volumes:
       - ./frontend:/mnt
     working_dir: /usr/src/app
-    entrypoint: tail -f /dev/null
-    #entrypoint: npm start
+    # entrypoint: tail -f /dev/null
+    entrypoint: npm start
 
   redis:
     image: redis:latest

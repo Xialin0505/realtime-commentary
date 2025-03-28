@@ -12,7 +12,7 @@ RUN apt install -y libgl1
 
 RUN pip3 install django djangorestframework django-cors-headers python-dotenv channels daphne pillow channels-redis asyncio
 RUN pip3 install openai
-RUN pip3 install requests Pillow numpy opencv-python
+RUN pip3 install requests numpy opencv-python
 
 # Copy your application code into the container
 COPY ./backend .
