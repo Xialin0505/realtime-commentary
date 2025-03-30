@@ -26,18 +26,31 @@ load_dotenv()
 client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
 prompt = [
-    """ <image_placeholder> provide an professional, one or two sentence commentary for this fencing event like a real commetary for 
-        the audience that is natural and does not delve into too many details. If the picture does not have two people wearing white suit (Fencer),
-        holding the weapon, then provide a summary or tactic of the game so far. If the piste lights up, track the score. 
-        Either describe the image or provide tactical insight. keep track of the score.
-        Consider not only the current pictures but also the previous three conversation. Keep it brief. 
+    """ Generate a detailed, live fencing commentary for a fencing match. 
+    Include emotional stakes, tactical insight, and real-time action.
+    Match the tone of a dramatic sports broadcast using the given reference transcript.
+    If the picture does not have two people wearing white suit (Fencer),
+    holding the weapon, then provide a summary or tactic of the game so far. If the piste lights up, track the score. 
+    Either describe the image or provide tactical insight. keep track of the score.
+    Consider not only the current pictures but also the previous three conversation. Keep it short. 
+    
+    Reference transcript:
+    {}
     """,
-    """ provide an professional, one or two sentence commentary for this fencing event like a real commetary for 
-        the audience that is natural and does not delve into too many details. Give out the tactic of the fencers.
+    """ Generate a detailed, live fencing commentary for a fencing match. 
+        Match the tone of a dramatic sports broadcast using the given reference transcript.
+        Include emotional stakes, tactical insight, and real-time action. Keep it short. 
+
+    Reference transcript:
+    {}
     """,
-    """ <image_placeholder> provide an professional, one sentence commentary for this fencing game picture, by providing
-        a summary of the game so far with no more than three sentence. Can include the time left, the current
-        scoring, and the score both team need to win the game, or the tactic Fencer is taking. 
+    """ Generate a detailed, live fencing commentary for a fencing match. 
+        Include emotional stakes, tactical insight, and real-time action. Can include the time left, the current
+        scoring, and the score both team need to win the game, or the tactic Fencer is taking.
+        Match the tone of a dramatic sports broadcast using the given reference transcript. Keep it short. 
+
+    Reference transcript:
+    {} 
     """
 ]
 
@@ -55,7 +68,7 @@ def read_transcript(folder_path):
 
     return result
 
-async def provide_transcript(transcript):
+async def start_up(transcript):
 
     stream = await client.chat.completions.create(
         model="gpt-4o",
@@ -76,7 +89,7 @@ async def provide_transcript(transcript):
 transcript = read_transcript("./dataset/transcript")
 number = len(transcript)
 
-asyncio.run(provide_transcript(transcript))
+asyncio.run(start_up(transcript))
 
 class OpenAIBatchGenerator:
     def __init__(self, prompt_list, transcript, segment_size=20, batch_size=1):
@@ -142,8 +155,8 @@ class OpenAIBatchGenerator:
                 model="gpt-4o",
                 messages=[
                     {"role": "system", "content": "You're a fencing commentator. Respond professionally with the provided commentary example."},
-                    {"role": "assistant", "content": context_text},
-                    {"role": "user", "content": [{"type": "text", "text": selected_prompt}] + image_contents}
+                    {"role": "assistant", "content": "reference tone and format: " + context_text},
+                    {"role": "user", "content": [{"type": "text", "text": selected_prompt.format(context_text)}] + image_contents}
                 ],
                 stream=True,
             )
@@ -266,12 +279,12 @@ class CommentaryConsumer(AsyncWebsocketConsumer):
                     self.room_group_name, {"type": "broadcast_message", "message": message}
                 )
         finally: 
-            # pass
-            try: # delete image after processing (uncomment if needed)
-                os.remove(image_path)
-                logger.info(f"Deleted temp file: {image_path}")
-            except Exception as e:
-                logger.error(f"Failed to delete temp file {image_path}: {e}")
+            pass
+            # try: # delete image after processing (uncomment if needed)
+            #     os.remove(image_path)
+            #     logger.info(f"Deleted temp file: {image_path}")
+            # except Exception as e:
+            #     logger.error(f"Failed to delete temp file {image_path}: {e}")
 
     async def broadcast_message(self, event):
         """Sends a broadcast message to WebSocket clients."""
