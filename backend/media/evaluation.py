@@ -12,7 +12,7 @@ load_dotenv()
 client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 sample_size = 10
-batch_size = 5
+batch_size = 4
 
 def get_image_info(image_path):
         """Returns base64 and MIME type"""
@@ -31,9 +31,9 @@ def evaluate_transcript_quality(reference_transcript, test_transcript):
     You are an expert at evaluating the quality of generated transcripts.
 
     You will receive two inputs: a reference transcript and a test transcript. Ignore speaker names or match participants. 
-    Focus ONLY on similarity in tone, structure, commentary style, detail, and semantic meaning.
+    Focus ONLY on similarity in tone, structure, and the style.
 "
-    Score the quality of the test transcript **from 0 to 5**, consider the limitation of AI generated transcript, be lenient.
+    Score the quality of the test transcript **from 0 to 5**, consider the limitation of OpenAI generated transcript, be very lenient.
 
     Output ONLY the number. No explanation.
 
@@ -46,7 +46,7 @@ def evaluate_transcript_quality(reference_transcript, test_transcript):
     response = client.chat.completions.create(
         model="gpt-4o",
         messages=[{"role": "user", "content": prompt}],
-        temperature=0.2,
+        temperature=0.8,
     )
 
     score = response.choices[0].message.content.strip()

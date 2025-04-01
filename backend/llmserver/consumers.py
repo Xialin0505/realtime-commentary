@@ -19,37 +19,32 @@ REDIS_HOST = os.getenv("REDIS_HOST", "redis")
 redis_client = redis.Redis(host=REDIS_HOST, port=6379, db=0, decode_responses=True)
 idx = 0
 
-segment_size = 20
+segment_size = 40
 
 load_dotenv()
 
 client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
 prompt = [
-    """ Generate a detailed, live fencing commentary for a fencing match. 
-    Include emotional stakes, tactical insight, and real-time action.
-    Match the tone of a dramatic sports broadcast using the given reference transcript.
-    If the picture does not have two people wearing white suit (Fencer),
+    """ You are a professional fencing commentator. Based on the image provided and the style of the following reference transcript, generate real-time, energetic, and insightful commentary suitable for a live broadcast. Describe the action visible in the image using correct fencing terms (e.g., lunge, parry, riposte, fleche). Keep the commentary concise, vivid, and fast-paced. Include fencer names, score dynamics, or momentum if visually inferable.
+    Include emotional stakes, tactical insight, and real-time action. Match the tone of a dramatic sports broadcast given the reference transcript. If the picture does not have two people wearing white suit (Fencer),
     holding the weapon, then provide a summary or tactic of the game so far. If the piste lights up, track the score. 
-    Either describe the image or provide tactical insight. keep track of the score.
-    Consider not only the current pictures but also the previous three conversation. Keep it short. 
+    Either describe the image or provide tactical insight. keep track of the score. Consider not only the current pictures but also the previous five conversation.
     
-    Reference transcript:
+    Reference Commentary:
     {}
     """,
-    """ Generate a detailed, live fencing commentary for a fencing match. 
-        Match the tone of a dramatic sports broadcast using the given reference transcript.
-        Include emotional stakes, tactical insight, and real-time action. Keep it short. 
+    """ Generate a detailed, live fencing commentary for a fencing match. Based on the image provided and the style of the following reference transcript, generate real-time, energetic, and insightful commentary suitable for a live broadcast. Describe the action visible in the image using correct fencing terms (e.g., lunge, parry, riposte, fleche). Keep the commentary concise, vivid, and fast-paced. Include fencer names, score dynamics, or momentum if visually inferable.
+    Provide tactical insight. Match the tone of a dramatic sports broadcast given the reference transcript. Consider not only the current pictures but also the previous five conversation.
 
-    Reference transcript:
+    Reference Commentary:
     {}
     """,
-    """ Generate a detailed, live fencing commentary for a fencing match. 
-        Include emotional stakes, tactical insight, and real-time action. Can include the time left, the current
-        scoring, and the score both team need to win the game, or the tactic Fencer is taking.
-        Match the tone of a dramatic sports broadcast using the given reference transcript. Keep it short. 
+    """ Generate a detailed, live fencing commentary for a fencing match. Based on the image provided and the style of the following reference transcript, generate real-time, energetic, and insightful commentary suitable for a live broadcast. Describe the action visible in the image using correct fencing terms (e.g., lunge, parry, riposte, fleche). Keep the commentary concise, vivid, and fast-paced. Include fencer names, score dynamics, or momentum if visually inferable.
+        Include emotional stakes, tactical insight, and real-time action. Can include the time left, the current scoring, and the score both team need to win the game, or the tactic Fencer is taking.
+        Match the tone of a dramatic sports broadcast given the reference transcript. Consider not only the current pictures but also the previous five conversation.
 
-    Reference transcript:
+    Reference Commentary:
     {} 
     """
 ]
@@ -72,6 +67,7 @@ async def start_up(transcript):
 
     stream = await client.chat.completions.create(
         model="gpt-4o",
+        temperature=0.8,
         messages = 
         [
             {
