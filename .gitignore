@@ -5,4 +5,5 @@ backend/dataset/.env
 backend/dataset/video
 backend/media/image
 backend/media/text
+backend/media/.env
 **.DS_Store
