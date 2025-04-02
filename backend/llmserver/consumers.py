@@ -59,7 +59,7 @@ def read_transcript(folder_path):
 async def start_up(transcript):
     stream = await client.chat.completions.create(
         model="gpt-4o",
-        temperature=0.8,
+        temperature=0.2,
         messages = 
         [
             {
@@ -150,6 +150,7 @@ class OpenAIBatchGenerator:
                     {"role": "user", "content": [{"type": "text", "text": selected_prompt.format(context_text)}] + image_contents}
                 ],
                 stream=True,
+                temperature=0.6,
             )
 
             response_buffer = ""
