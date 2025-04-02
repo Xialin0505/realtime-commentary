@@ -175,8 +175,6 @@ class OpenAIBatchGenerator:
                         yield chunk_to_send
                     else:
                         break
-                
-                await asyncio.sleep(0.05)
 
             # send remaining content
             if response_buffer.strip():
@@ -254,7 +252,6 @@ class CommentaryConsumer(AsyncWebsocketConsumer):
 
                 logger.info(f"Generated commentary: {commentary}")
                 await self.send(text_data=json.dumps(message))
-                # await asyncio.sleep(0.5)
         finally: 
             pass
             # try: # delete image after processing (uncomment if needed)

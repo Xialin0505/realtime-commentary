@@ -52,9 +52,11 @@ const VideoPlayer = ({ userInput }) => {
   const [commentaryHistory, setCommentaryHistory] = useState([]);
   const [messageHistory, setMessageHistory] = useState([]);
   const commentariesRef = useRef([]);
+  const commentaryBufferRef = useRef([]);
 
   const cleanHistory = useCallback(() => {
     commentariesRef.current = [];
+    commentaryBufferRef.current = [];
     setCommentaryHistory([]);
     setMessageHistory([]);
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
@@ -97,6 +99,17 @@ const VideoPlayer = ({ userInput }) => {
     }
     setCommentaryHistory(commentariesRef.current.map((c) => `[${c.timestamp}] ${c.content}`));
   }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (commentaryBufferRef.current.length > 0) {
+        const next = commentaryBufferRef.current.shift();
+        processCommentary(next.timestamp, next.content);
+      }
+    }, 500);
+  
+    return () => clearInterval(interval);
+  }, [processCommentary]);
 
   // URL Parser: parse the user input and set the video source and websocket id
   useEffect(() => {
@@ -155,7 +168,7 @@ const VideoPlayer = ({ userInput }) => {
       try {
         const message = JSON.parse(event.data);
         if (message.type === "commentary") {
-          processCommentary(message.timestamp, message.content);
+          commentaryBufferRef.current.push({timestamp: message.timestamp, content: message.content});
         } else if (message.type === "chat") {
           setMessageHistory((prev) => [...prev, message.content]);
         }
