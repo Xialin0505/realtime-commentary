@@ -80,13 +80,22 @@ const VideoPlayer = ({ userInput }) => {
 
   // Process Commentary: insert the new commentary into the commentary history
   const processCommentary = useCallback((timestamp, content) => {
+    const index = findInsertIndex(timestamp);
     const parsedNew = parseTimestamp(timestamp);
-    let i = 0;
-    while (i < commentariesRef.current.length && parseTimestamp(commentariesRef.current[i].timestamp) < parsedNew) {
-      i++;
+  
+    // append if exists
+    if ( index < commentariesRef.current.length && parseTimestamp(commentariesRef.current[index].timestamp) === parsedNew) {
+      commentariesRef.current[index].content += content;
+      console.log(`${new Date().toISOString()} [DEBUG] Appended commentary: ${commentariesRef.current[index].content}`);
+    // insert if not exists
+    } else {
+      commentariesRef.current.splice(index, 0, {
+        timestamp,
+        content,
+      });
+      console.log(`${new Date().toISOString()} [DEBUG] Insert new commentary: ${commentariesRef.current[index].content}`);
     }
-    commentariesRef.current.splice(i, 0, { timestamp, content });
-    setCommentaryHistory(commentariesRef.current.map((c) => c.content));
+    setCommentaryHistory(commentariesRef.current.map((c) => `[${c.timestamp}] ${c.content}`));
   }, []);
 
   // URL Parser: parse the user input and set the video source and websocket id

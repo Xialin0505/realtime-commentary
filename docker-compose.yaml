@@ -9,8 +9,6 @@ services:
       - '8000:8000'
     volumes:
       - ./backend:/mnt
-    depends_on:
-      - redis
     environment:
       - REDIS_HOST=redis
     # entrypoint: tail -f /dev/null
@@ -30,14 +28,6 @@ services:
     working_dir: /usr/src/app
     # entrypoint: tail -f /dev/null
     entrypoint: npm start
-
-  redis:
-    image: redis:latest
-    restart: always
-    networks:
-      - commentarynet
-    ports:
-      - "6379:6379"
 
 networks:
   commentarynet:

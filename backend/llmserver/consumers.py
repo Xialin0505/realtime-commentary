@@ -1,22 +1,15 @@
 import json
 import os
-import redis
 import logging
 import base64
-import requests
 import asyncio
-import cv2
-import os
 import re
 from channels.generic.websocket import AsyncWebsocketConsumer
 from openai import AsyncOpenAI
 from django.conf import settings
 from dotenv import load_dotenv
-import numpy as np
 
 logger = logging.getLogger(__name__)
-REDIS_HOST = os.getenv("REDIS_HOST", "redis")
-redis_client = redis.Redis(host=REDIS_HOST, port=6379, db=0, decode_responses=True)
 idx = 0
 
 segment_size = 40
@@ -64,7 +57,6 @@ def read_transcript(folder_path):
     return result
 
 async def start_up(transcript):
-
     stream = await client.chat.completions.create(
         model="gpt-4o",
         temperature=0.8,
@@ -145,7 +137,10 @@ class OpenAIBatchGenerator:
             {"type": "image_url", "image_url": {"url": f"data:{img_type};base64,{img_b64}"}}
             for img_b64, img_type in self.buffer
         ]
+        
+        self.buffer = []  # clear image buffer after use
 
+        # stream response
         try:
             stream = await client.chat.completions.create(
                 model="gpt-4o",
@@ -157,18 +152,35 @@ class OpenAIBatchGenerator:
                 stream=True,
             )
 
-            response_text = ""
+            response_buffer = ""
             async for chunk in stream:
                 content = chunk.choices[0].delta.content
                 if content:
-                    response_text += content
+                    response_buffer += content
+                    
+                # send content chunk by chunk
+                while len(response_buffer) > 0:
+                    # search for sentence boundary
+                    last_break = max(
+                        response_buffer.rfind("."),
+                        response_buffer.rfind("!"),
+                        response_buffer.rfind("?"),
+                        response_buffer.rfind("\n")
+                    )
+                
+                    chunk_size = 20
+                    if last_break >= chunk_size:
+                        chunk_to_send = response_buffer[:last_break+1]
+                        response_buffer = response_buffer[last_break+1:]
+                        yield chunk_to_send
+                    else:
+                        break
+                
+                await asyncio.sleep(0.05)
 
-            self.buffer = []  # clear buffer after use
-
-            if response_text.strip():
-                yield response_text.strip()
-            else:
-                yield "No valid response generated."
+            # send remaining content
+            if response_buffer.strip():
+                yield response_buffer.strip()
 
         except Exception as e:
             logger.error(f"OpenAI API error: {e}")
@@ -180,22 +192,11 @@ class CommentaryConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         """Handles new WebSocket connections."""
         self.video_id = self.scope["url_route"]["kwargs"]["video_id"]
-        self.room_group_name = f"commentary_{self.video_id}"
-
-        await self.channel_layer.group_add(self.room_group_name, self.channel_name)
         await self.accept()
-
-        if redis_client:
-            try:
-                history = redis_client.lrange(f"commentary_{self.video_id}", 0, -1)
-                for msg in history:
-                    await self.send(text_data=msg)
-            except Exception as e:
-                logger.error(f"Failed to fetch latest commentary: {e}")
 
     async def disconnect(self, close_code):
         """Handles WebSocket disconnection."""
-        await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
+        pass
 
     async def receive(self, text_data=None, bytes_data=None):
         """Handles incoming WebSocket messages."""
@@ -205,19 +206,11 @@ class CommentaryConsumer(AsyncWebsocketConsumer):
                 if data.get("type") == "chat":
                     message = {
                         "type": "chat",
-                        "timestamp": timestamp,
+                        "timestamp": data.get("timestamp"),
                         "username": data.get("username", "anonymous"),
                         "message": data["message"],
                     }
-                    if redis_client:
-                        try:
-                            redis_client.rpush(f"chat_{self.video_id}", json.dumps(message))
-                        except Exception as e:
-                            logger.error(f"Failed to store chat message in Redis: {e}")
-
-                    await self.channel_layer.group_send(
-                        self.room_group_name, {"type": "broadcast_message", "message": message}
-                    )
+                    await self.send(text_data=json.dumps(message))
                 elif data.get("type") == "screenshot":
                     _, base64_str = data.get("image").split(",", 1)
                     bytes_data = bytearray(base64.b64decode(base64_str))
@@ -231,7 +224,7 @@ class CommentaryConsumer(AsyncWebsocketConsumer):
             logger.error(f"Error processing WebSocket message: {e}")
 
     async def receive_bytes(self, bytes_data, timestamp=0.0):
-        formatted_timestamp = re.sub(r"[:.]", "_", timestamp)
+        formatted_timestamp = re.sub(r"[:.]", "_", str(timestamp))
         image_path = f"/mnt/media/image/{self.video_id}_frame_{formatted_timestamp}.png"
         
         with open(image_path, "wb") as f:
@@ -246,13 +239,9 @@ class CommentaryConsumer(AsyncWebsocketConsumer):
         await self.process_screenshot(image_path, timestamp)
 
     async def process_screenshot(self, image_path, timestamp):
-        """Processes an image and sends generated commentary to clients."""
+        """Processes an image and sends generated commentary to client."""
         try:
             async for commentary in generator.add_image(image_path):
-
-                if timestamp:
-                    commentary = f"[{timestamp}] " + commentary
-
                 with open("/mnt/media/text/" + os.path.basename(image_path).replace(".png", ".txt"), "w+") as f:
                     f.write(commentary)
 
@@ -264,16 +253,8 @@ class CommentaryConsumer(AsyncWebsocketConsumer):
                 }
 
                 logger.info(f"Generated commentary: {commentary}")
-
-                if redis_client:
-                    try:
-                        redis_client.rpush(f"commentary_{self.video_id}", json.dumps(message))
-                    except Exception as e:
-                        logger.error(f"Failed to store commentary in Redis: {e}")
-
-                await self.channel_layer.group_send(
-                    self.room_group_name, {"type": "broadcast_message", "message": message}
-                )
+                await self.send(text_data=json.dumps(message))
+                # await asyncio.sleep(0.5)
         finally: 
             pass
             # try: # delete image after processing (uncomment if needed)
@@ -281,11 +262,3 @@ class CommentaryConsumer(AsyncWebsocketConsumer):
             #     logger.info(f"Deleted temp file: {image_path}")
             # except Exception as e:
             #     logger.error(f"Failed to delete temp file {image_path}: {e}")
-
-    async def broadcast_message(self, event):
-        """Sends a broadcast message to WebSocket clients."""
-        try:
-            logger.info(f"Broadcasting message: {event['message']}")
-            await self.send(text_data=json.dumps(event["message"]))
-        except Exception as e:
-            logger.error(f"Failed to send broadcast message: {e}")
