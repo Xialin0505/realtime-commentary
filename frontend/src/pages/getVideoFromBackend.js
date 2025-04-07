@@ -80,6 +80,35 @@ const VideoPlayer = ({ userInput }) => {
     return low;
   };
 
+  class AudioQueue {
+    constructor() {
+        this.queue = [];
+        this.playing = false;
+    }
+
+    enqueue(base64Audio) {
+        this.queue.push(base64Audio);
+        this.playNext();
+    }
+
+    async playNext() {
+        if (this.playing || this.queue.length === 0) return;
+
+        this.playing = true;
+        const base64 = this.queue.shift();
+        const audio = new Audio("data:audio/wav;base64," + base64);
+
+        await new Promise((resolve) => {
+            audio.onended = resolve;
+            audio.onerror = resolve;
+            audio.play().catch(resolve); // Handle autoplay errors silently
+        });
+
+        this.playing = false;
+        this.playNext(); // Play the next one
+    }
+}
+
   // Process Commentary: insert the new commentary into the commentary history
   const processCommentary = useCallback((timestamp, content) => {
     const index = findInsertIndex(timestamp);
@@ -163,12 +192,16 @@ const VideoPlayer = ({ userInput }) => {
 
     const socket = new WebSocket(`ws://localhost:8000/ws/commentary/${websocketId}/`);
     wsRef.current = socket;
+    const audioQueue = new AudioQueue();
 
     socket.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
         if (message.type === "commentary") {
           commentaryBufferRef.current.push({timestamp: message.timestamp, content: message.content});
+          if (message.audio) {
+            audioQueue.enqueue(message.audio);
+          }
         } else if (message.type === "chat") {
           setMessageHistory((prev) => [...prev, message.content]);
         }

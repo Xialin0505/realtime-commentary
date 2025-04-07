@@ -8,6 +8,7 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from openai import AsyncOpenAI
 from django.conf import settings
 from dotenv import load_dotenv
+import requests
 
 logger = logging.getLogger(__name__)
 idx = 0
@@ -100,6 +101,19 @@ class OpenAIBatchGenerator:
             b64 = base64.b64encode(f.read()).decode("utf-8")
         return b64, mime
 
+    def synthesize_tts(self, text):
+        try:
+            response = requests.post(
+                "http://{}:5000/synthesize".format(os.environ.get("DEEPSEEK_IP")),
+                headers={"Content-Type": "application/json"},
+                json={"text": text}
+            )
+            if response.status_code == 200:
+                return base64.b64encode(response.content).decode("utf-8")
+        except Exception as e:
+            logger.error(f"TTS error: {e}")
+        return None
+    
     async def add_image(self, image_path):
         """Add image and yield only when buffer is full"""
         img_b64, img_type = self.get_image_info(image_path)
@@ -173,17 +187,22 @@ class OpenAIBatchGenerator:
                     if last_break >= chunk_size:
                         chunk_to_send = response_buffer[:last_break+1]
                         response_buffer = response_buffer[last_break+1:]
-                        yield chunk_to_send
+
+                        audio_b64 = self.synthesize_tts(chunk_to_send)
+                        logger.info("Received audio")
+                        yield {"content": chunk_to_send, "audio": audio_b64}
                     else:
                         break
 
             # send remaining content
             if response_buffer.strip():
-                yield response_buffer.strip()
+                final_text = response_buffer.strip()
+                audio_b64 = self.synthesize_tts(final_text)
+                yield {"content": final_text, "audio": audio_b64}
 
         except Exception as e:
             logger.error(f"OpenAI API error: {e}")
-            yield "Error: Failed to generate commentary."
+            yield {"content":"Error: Failed to generate commentary.", "audio": None}
 
 generator = OpenAIBatchGenerator(prompt_list=prompt, transcript=transcript, segment_size=20, batch_size=4)
 
@@ -240,19 +259,20 @@ class CommentaryConsumer(AsyncWebsocketConsumer):
     async def process_screenshot(self, image_path, timestamp):
         """Processes an image and sends generated commentary to client."""
         try:
-            async for commentary in generator.add_image(image_path):
+            async for result in generator.add_image(image_path):
                 with open("/mnt/media/text/" + os.path.basename(image_path).replace(".png", ".txt"), "w+") as f:
-                    f.write(commentary)
+                    f.write(result["content"])
 
-                message = {
+                await self.send(text_data=json.dumps({
                     "type": "commentary",
                     "timestamp": timestamp,
                     "video_id": self.video_id,
-                    "content": commentary,
-                }
+                    "content": result["content"],
+                    "audio": result["audio"],
+                    "format": "wav"
+                }))
 
-                logger.info(f"Generated commentary: {commentary}")
-                await self.send(text_data=json.dumps(message))
+                logger.info(f"Generated commentary: {result["content"]}")
         finally: 
             pass
             # try: # delete image after processing (uncomment if needed)
