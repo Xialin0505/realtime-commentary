@@ -8,6 +8,7 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from openai import AsyncOpenAI
 from django.conf import settings
 from dotenv import load_dotenv
+import requests
 
 logger = logging.getLogger(__name__)
 idx = 0
@@ -179,7 +180,8 @@ class OpenAIBatchGenerator:
 
             # send remaining content
             if response_buffer.strip():
-                yield response_buffer.strip()
+                final_text = response_buffer.strip()
+                yield final_text
 
         except Exception as e:
             logger.error(f"OpenAI API error: {e}")
@@ -240,23 +242,22 @@ class CommentaryConsumer(AsyncWebsocketConsumer):
     async def process_screenshot(self, image_path, timestamp):
         """Processes an image and sends generated commentary to client."""
         try:
-            async for commentary in generator.add_image(image_path):
+            async for text in generator.add_image(image_path):
                 with open("/mnt/media/text/" + os.path.basename(image_path).replace(".png", ".txt"), "w+") as f:
-                    f.write(commentary)
+                    f.write(text)
 
-                message = {
+                await self.send(text_data=json.dumps({
                     "type": "commentary",
                     "timestamp": timestamp,
                     "video_id": self.video_id,
-                    "content": commentary,
-                }
+                    "content": text,
+                }))
 
-                logger.info(f"Generated commentary: {commentary}")
-                await self.send(text_data=json.dumps(message))
+                logger.info(f"Generated commentary: {text}")
         finally: 
             pass
-            # try: # delete image after processing (uncomment if needed)
-            #     os.remove(image_path)
-            #     logger.info(f"Deleted temp file: {image_path}")
-            # except Exception as e:
-            #     logger.error(f"Failed to delete temp file {image_path}: {e}")
+            try: # delete image after processing (uncomment if needed)
+                os.remove(image_path)
+                logger.info(f"Deleted temp file: {image_path}")
+            except Exception as e:
+                logger.error(f"Failed to delete temp file {image_path}: {e}")

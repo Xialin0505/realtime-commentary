@@ -1,6 +1,9 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
 import { Card } from "primereact/card";
 import FloatingWindow from "./floatingChatWindow";
+import useAudioQueue from '../hooks/useAudioQueue';
+import useBrowserTTS from '../hooks/useBrowserTTS';
+import TTSSelector from "./TTSSelector";
 
 // Timestamp Formatter 1: seconds -> HH:MM:SS.MS
 function formatTimestamp(seconds) {
@@ -54,6 +57,24 @@ const VideoPlayer = ({ userInput }) => {
   const commentariesRef = useRef([]);
   const commentaryBufferRef = useRef([]);
 
+  const { speak: speakBrowser } = useBrowserTTS();
+  const TTS_API_URL = process.env.REACT_APP_TTS_API_URL;
+  const { enqueueSpeech: speakBackend } = useAudioQueue(TTS_API_URL);
+  const [ttsMode, setTTSMode] = useState("");
+  const ttsModeRef = useRef(ttsMode);
+
+  useEffect(() => {
+    ttsModeRef.current = ttsMode;
+  }, [ttsMode]);
+
+  const handleCommentary = (text) => {
+    if (ttsModeRef.current === "browser") {
+      speakBrowser(text);
+    } else if (ttsModeRef.current === "backend") {
+      speakBackend(text);
+    }
+  };
+  
   const cleanHistory = useCallback(() => {
     commentariesRef.current = [];
     commentaryBufferRef.current = [];
@@ -88,14 +109,14 @@ const VideoPlayer = ({ userInput }) => {
     // append if exists
     if ( index < commentariesRef.current.length && parseTimestamp(commentariesRef.current[index].timestamp) === parsedNew) {
       commentariesRef.current[index].content += content;
-      console.log(`${new Date().toISOString()} [DEBUG] Appended commentary: ${commentariesRef.current[index].content}`);
+      // console.log(`${new Date().toISOString()} [DEBUG] Appended commentary: ${commentariesRef.current[index].content}`);
     // insert if not exists
     } else {
       commentariesRef.current.splice(index, 0, {
         timestamp,
         content,
       });
-      console.log(`${new Date().toISOString()} [DEBUG] Insert new commentary: ${commentariesRef.current[index].content}`);
+      // console.log(`${new Date().toISOString()} [DEBUG] Insert new commentary: ${commentariesRef.current[index].content}`);
     }
     setCommentaryHistory(commentariesRef.current.map((c) => `[${c.timestamp}] ${c.content}`));
   }, []);
@@ -163,11 +184,12 @@ const VideoPlayer = ({ userInput }) => {
 
     const socket = new WebSocket(`ws://localhost:8000/ws/commentary/${websocketId}/`);
     wsRef.current = socket;
-
+    
     socket.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
         if (message.type === "commentary") {
+          handleCommentary(message.content);
           commentaryBufferRef.current.push({timestamp: message.timestamp, content: message.content});
         } else if (message.type === "chat") {
           setMessageHistory((prev) => [...prev, message.content]);
@@ -248,6 +270,8 @@ const VideoPlayer = ({ userInput }) => {
           )}
         </div>
         <canvas ref={canvasRef} style={{ display: "none" }}></canvas>
+        <TTSSelector ttsMode={ttsMode} setTTSMode={setTTSMode} />
+
       </Card>
       <FloatingWindow key={userInput} streamResponses={commentaryHistory} />
     </div>
