@@ -101,19 +101,6 @@ class OpenAIBatchGenerator:
             b64 = base64.b64encode(f.read()).decode("utf-8")
         return b64, mime
 
-    def synthesize_tts(self, text):
-        try:
-            response = requests.post(
-                "http://{}:5000/synthesize".format(os.environ.get("DEEPSEEK_IP")),
-                headers={"Content-Type": "application/json"},
-                json={"text": text}
-            )
-            if response.status_code == 200:
-                return base64.b64encode(response.content).decode("utf-8")
-        except Exception as e:
-            logger.error(f"TTS error: {e}")
-        return None
-    
     async def add_image(self, image_path):
         """Add image and yield only when buffer is full"""
         img_b64, img_type = self.get_image_info(image_path)
@@ -187,22 +174,18 @@ class OpenAIBatchGenerator:
                     if last_break >= chunk_size:
                         chunk_to_send = response_buffer[:last_break+1]
                         response_buffer = response_buffer[last_break+1:]
-
-                        audio_b64 = self.synthesize_tts(chunk_to_send)
-                        logger.info("Received audio")
-                        yield {"content": chunk_to_send, "audio": audio_b64}
+                        yield chunk_to_send
                     else:
                         break
 
             # send remaining content
             if response_buffer.strip():
                 final_text = response_buffer.strip()
-                audio_b64 = self.synthesize_tts(final_text)
-                yield {"content": final_text, "audio": audio_b64}
+                yield final_text
 
         except Exception as e:
             logger.error(f"OpenAI API error: {e}")
-            yield {"content":"Error: Failed to generate commentary.", "audio": None}
+            yield "Error: Failed to generate commentary."
 
 generator = OpenAIBatchGenerator(prompt_list=prompt, transcript=transcript, segment_size=20, batch_size=4)
 
@@ -259,24 +242,22 @@ class CommentaryConsumer(AsyncWebsocketConsumer):
     async def process_screenshot(self, image_path, timestamp):
         """Processes an image and sends generated commentary to client."""
         try:
-            async for result in generator.add_image(image_path):
+            async for text in generator.add_image(image_path):
                 with open("/mnt/media/text/" + os.path.basename(image_path).replace(".png", ".txt"), "w+") as f:
-                    f.write(result["content"])
+                    f.write(text)
 
                 await self.send(text_data=json.dumps({
                     "type": "commentary",
                     "timestamp": timestamp,
                     "video_id": self.video_id,
-                    "content": result["content"],
-                    "audio": result["audio"],
-                    "format": "wav"
+                    "content": text,
                 }))
 
-                logger.info(f"Generated commentary: {result["content"]}")
+                logger.info(f"Generated commentary: {text}")
         finally: 
             pass
-            # try: # delete image after processing (uncomment if needed)
-            #     os.remove(image_path)
-            #     logger.info(f"Deleted temp file: {image_path}")
-            # except Exception as e:
-            #     logger.error(f"Failed to delete temp file {image_path}: {e}")
+            try: # delete image after processing (uncomment if needed)
+                os.remove(image_path)
+                logger.info(f"Deleted temp file: {image_path}")
+            except Exception as e:
+                logger.error(f"Failed to delete temp file {image_path}: {e}")
