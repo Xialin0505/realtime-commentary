@@ -7,6 +7,7 @@ import numpy as np
 from collections import defaultdict
 import matplotlib.pyplot as plt
 from dotenv import load_dotenv
+from matplotlib.cm import get_cmap
 
 load_dotenv()
 client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -86,36 +87,46 @@ def eval_all_data(folder_path="./text", output_path="./eval.csv"):
         file_name.append(idx)
 
     df = pd.DataFrame({
-        "filename": file_name,
         "score": scores
     })
     df.to_csv(output_path, index=False)
 
 
 def plot(filename="./eval.csv"): 
-    data_frame = pd.read_csv(filename)
-    scores = data_frame["score"].tolist()
 
-    bin_edges = [i * 0.5 - 0.25 for i in range(12)]
+    df = pd.read_csv(filename)
 
-    mean_score = np.mean(scores)
+    # Define score range
+    score_range = range(1, 6)  # Assuming scores are between 1 and 5
 
-    plt.figure(figsize=(8, 6))
-    bars = plt.hist(scores, bins=bin_edges, edgecolor='white', color="#4C72B0", rwidth=0.9)
+    # Count frequencies of each score in each column
+    freq_data = pd.DataFrame(index=score_range)
+    for col in df.columns:
+        freq_data[col] = df[col].value_counts().reindex(score_range, fill_value=0)
 
-    plt.axvline(mean_score, color='red', linestyle='--', linewidth=1.5, label=f"Mean = {mean_score:.2f}")
+    freq_df = pd.DataFrame(index=score_range)
+    for col in df.columns:
+        freq_df[col] = df[col].value_counts().reindex(score_range, fill_value=0)
 
-    plt.xlabel("Transcript Score", fontsize=12)
-    plt.ylabel("Frequency", fontsize=12)
-    plt.title("Distribution of Transcript Quality Scores", fontsize=14, weight='bold')
+    # Plotting
+    bar_width = 0.15
+    x = np.arange(len(score_range))
 
-    plt.xticks([i * 0.5 for i in range(11)], fontsize=10)
-    plt.yticks(fontsize=10)
+    # Use a nicer colormap
+    colors = get_cmap('Set2').colors  # 8 soft pastel colors
 
-    plt.grid(axis='y', linestyle='--', alpha=0.6)
-    plt.gca().set_facecolor('#f9f9f9')
+    plt.figure(figsize=(10, 6))
 
-    plt.legend()
+    for i, (col, color) in enumerate(zip(freq_df.columns, colors)):
+        plt.bar(x + i * bar_width, freq_df[col], width=bar_width, label=col, color=color, edgecolor='black')
+
+    # Labels and formatting
+    plt.xlabel('Score', fontsize=12)
+    plt.ylabel('Frequency', fontsize=12)
+    plt.title('Score Frequencies by Category', fontsize=14, weight='bold')
+    plt.xticks(x + bar_width * (len(freq_df.columns) / 2 - 0.5), score_range)
+    plt.legend(title='Category', fontsize=10)
+    plt.grid(axis='y', linestyle='--', alpha=0.5)
     plt.tight_layout()
     plt.show()
 
