@@ -9,14 +9,13 @@ services:
       - '8000:8000'
     volumes:
       - ./backend:/mnt
-    depends_on:
-      - redis
     environment:
       - REDIS_HOST=redis
-    entrypoint: tail -f /dev/null
-    # entrypoint: daphne -b 0.0.0.0 -p 8000 realtime_commentary.asgi:application
+    # entrypoint: tail -f /dev/null
+    entrypoint: daphne -b 0.0.0.0 -p 8000 realtime_commentary.asgi:application
 
   frontend:
+    tty: true
     build:
       context: .
       dockerfile: frontend.Dockerfile
@@ -26,16 +25,9 @@ services:
       - '3000:3000'
     volumes:
       - ./frontend:/mnt
-    entrypoint: tail -f /dev/null
-    # entrypoint: npm run start
-
-  redis:
-    image: redis:latest
-    restart: always
-    networks:
-      - commentarynet
-    ports:
-      - "6379:6379"
+    working_dir: /usr/src/app
+    # entrypoint: tail -f /dev/null
+    entrypoint: npm start
 
 networks:
   commentarynet:
